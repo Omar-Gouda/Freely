@@ -7,4 +7,6 @@ dist
 prisma/dev.db
 uploads
 .freely-data
+storage
+tsconfig.tsbuildinfo
 
