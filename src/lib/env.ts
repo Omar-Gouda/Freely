@@ -1,0 +1,46 @@
+import { z } from "zod";
+
+const envSchema = z.object({
+  DATABASE_URL: z.string().optional().default(""),
+  DIRECT_URL: z.string().optional().default(""),
+  JWT_SECRET: z.string().optional().default(""),
+
+  APP_URL: z.string().url().default("http://localhost:3000"),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().optional().default(""),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY: z.string().optional().default(""),
+  NEXT_PUBLIC_SENTRY_DSN: z.string().optional().default(""),
+  SENTRY_DSN: z.string().optional().default(""),
+  SENTRY_AUTH_TOKEN: z.string().optional().default(""),
+  SENTRY_ORG: z.string().optional().default(""),
+  SENTRY_PROJECT: z.string().optional().default(""),
+  SENTRY_ENVIRONMENT: z.string().optional().default(""),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().default(0.15),
+  LOG_LEVEL: z.enum(["info", "warn", "error"]).default("info"),
+  AI_PROVIDER: z.enum(["mock", "openai"]).catch("mock"),
+  OPENAI_API_KEY: z.string().optional().default(""),
+  OPENAI_MODEL: z.string().default("gpt-4.1-mini"),
+  STORAGE_DRIVER: z.enum(["local", "s3", "supabase"]).default("local"),
+  S3_REGION: z.string().default("us-east-1"),
+  S3_BUCKET: z.string().default("freely-private"),
+  S3_ACCESS_KEY_ID: z.string().optional().default(""),
+  S3_SECRET_ACCESS_KEY: z.string().optional().default(""),
+  S3_ENDPOINT: z.string().optional().default(""),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional().default(""),
+  SUPABASE_STORAGE_BUCKET: z.string().default("freely-private"),
+  EMAIL_FROM: z.string().email().or(z.literal("")).default(""),
+  SUPPORT_EMAIL: z.string().email().or(z.literal("")).default(""),
+  SMTP_HOST: z.string().optional().default(""),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_USER: z.string().optional().default(""),
+  SMTP_PASS: z.string().optional().default(""),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  MAX_UPLOAD_SIZE_MB: z.coerce.number().default(20),
+  CRON_SECRET: z.string().optional().default(""),
+  TWILIO_ACCOUNT_SID: z.string().optional().default(""),
+  TWILIO_AUTH_TOKEN: z.string().optional().default(""),
+  TWILIO_WHATSAPP_FROM: z.string().optional().default(""),
+  GOOGLE_CLIENT_ID: z.string().optional().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().optional().default("")
+});
+
+export const env = envSchema.parse(process.env);
