@@ -207,7 +207,7 @@ export async function processInterviewReminder(payload: InterviewReminderPayload
     userId: payload.expectedRecruiterId || null,
     kind: NotificationKind.INTERVIEW_REMINDER,
     title: "Upcoming interview",
-    message: `${candidateLabel} · ${slot.job.title} · ${new Date(payload.expectedStartAt).toLocaleString()}`
+    message: `${candidateLabel} - ${slot.job.title} - ${new Date(payload.expectedStartAt).toLocaleString()}`
   });
 }
 

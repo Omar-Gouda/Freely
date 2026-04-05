@@ -29,7 +29,7 @@ async function getAssignedRecruiter(organizationId: string, assignedRecruiterId?
 }
 
 function formatScheduleLabel(startsAt: Date, endsAt: Date) {
-  return `${format(startsAt, "EEE, MMM d")} · ${format(startsAt, "h:mm a")} - ${format(endsAt, "h:mm a")}`;
+  return `${format(startsAt, "EEE, MMM d")} - ${format(startsAt, "h:mm a")} - ${format(endsAt, "h:mm a")}`;
 }
 
 export async function GET(request: NextRequest) {
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         userId: assignedRecruiter.id,
         kind: NotificationKind.INTERVIEW_REMINDER,
         title: "Interview added to your schedule",
-        message: `${candidate.firstName} ${candidate.lastName} · ${slot.job.title} · ${formatScheduleLabel(slot.startsAt, slot.endsAt)}`
+        message: `${candidate.firstName} ${candidate.lastName} - ${slot.job.title} - ${formatScheduleLabel(slot.startsAt, slot.endsAt)}`
       });
     }
 
@@ -282,7 +282,7 @@ export async function PATCH(request: NextRequest) {
       userId: assignedRecruiter.id,
       kind: NotificationKind.INTERVIEW_REMINDER,
       title: "Interview schedule updated",
-      message: `${slot.job.title} · ${formatScheduleLabel(nextStartsAt, nextEndsAt)}${slot.booking ? ` · ${slot.booking.candidate.firstName} ${slot.booking.candidate.lastName}` : ""}`
+      message: `${slot.job.title} - ${formatScheduleLabel(nextStartsAt, nextEndsAt)}${slot.booking ? ` - ${slot.booking.candidate.firstName} ${slot.booking.candidate.lastName}` : ""}`
     });
   }
 
