@@ -7,6 +7,7 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Role } from "@/lib/models";
 
 type InterviewSlotItem = {
   id: string;
@@ -41,16 +42,19 @@ type InterviewsPageProps = {
 export default async function InterviewsPage({ searchParams }: InterviewsPageProps) {
   const session = await requireSession();
   const params = (searchParams ? await searchParams : {}) ?? {};
-  const jobs = (await db.job.findMany({
+  const allJobs = (await db.job.findMany({
     where: { organizationId: session.organizationId, deletedAt: null },
     orderBy: { createdAt: "desc" },
-    select: { id: true, title: true }
-  })) as Array<{ id: string; title: string }>;
+    select: { id: true, title: true, assignedRecruiterId: true, assignmentHistory: true }
+  })) as Array<{ id: string; title: string; assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }>;
+  const jobs = session.role === Role.RECRUITER
+    ? allJobs.filter((job) => job.assignedRecruiterId === session.id || (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id))
+    : allJobs;
   const selectedJobId = params.jobId ?? jobs[0]?.id ?? "";
 
   const [recruiters, slots, candidates] = selectedJobId
     ? ((await Promise.all([
-        db.user.findMany({ where: { organizationId: session.organizationId, deletedAt: null }, select: { id: true, fullName: true, email: true } }),
+        db.user.findMany({ where: { organizationId: session.organizationId, deletedAt: null, role: Role.RECRUITER }, select: { id: true, fullName: true, email: true } }),
         db.interviewSlot.findMany({
           where: { organizationId: session.organizationId, jobId: selectedJobId },
           orderBy: { startsAt: "asc" },
@@ -111,22 +115,17 @@ export default async function InterviewsPage({ searchParams }: InterviewsPagePro
     <div className="stack-xl workspace-screen-shell">
       <WorkspaceHero
         scene="interviews"
-        eyebrow="Interview command"
-        title="Open scorecards from the calendar, keep recruiter ownership visible, and reduce scheduling clutter."
-        description="The refreshed interview workspace gives you a calmer calendar, cleaner forms, and candidate-linked evaluations that stay useful after the interview ends."
+        eyebrow="Interview planning"
+        title="Schedule interviews, keep recruiter ownership visible, and store evaluations on the candidate record."
+        description="The interview workspace keeps scheduling simpler and preserves scorecards after the interview is complete."
         stats={[
           { label: "Visible slots", value: String(metrics.total) },
           { label: "Booked", value: String(metrics.booked) },
           { label: "Open slots", value: String(metrics.open) }
         ]}
+        showVisual={session.role !== Role.RECRUITER}
+        compactVisual
       />
-
-      <div className="stats-grid dashboard-stats-grid">
-        <Card><strong>{metrics.total}</strong><span>Visible slots</span></Card>
-        <Card><strong>{metrics.assignedToMe}</strong><span>Assigned to me</span></Card>
-        <Card><strong>{metrics.booked}</strong><span>Booked interviews</span></Card>
-        <Card><strong>{metrics.open}</strong><span>Open slots</span></Card>
-      </div>
 
       <div className="page-grid-wide interview-layout-grid workspace-split-layout">
         <div className="stack-xl">
@@ -154,8 +153,8 @@ export default async function InterviewsPage({ searchParams }: InterviewsPagePro
 
         <div className="stack-xl sticky-card">
           <Card className="workspace-side-card workspace-side-card-rich">
-            <SectionHeading title="Create interview slot" description="Block time, assign the recruiter, and add the meeting context once." />
-            <InterviewSlotForm jobs={jobs} recruiters={recruiters.map((recruiter) => ({ id: recruiter.id, fullName: recruiter.fullName }))} selectedJobId={selectedJobId} currentUserId={session.id} />
+            <SectionHeading title="Create interview slot" description="Block time, assign the recruiter, and keep interview context in one place." />
+            <InterviewSlotForm jobs={jobs.map((job) => ({ id: job.id, title: job.title }))} recruiters={recruiters.map((recruiter) => ({ id: recruiter.id, fullName: recruiter.fullName }))} selectedJobId={selectedJobId} currentUserId={session.id} />
           </Card>
           <Card className="workspace-side-card workspace-side-card-rich">
             <SectionHeading title="Assign candidate" description="Attach a candidate to any open slot in the selected role schedule." />

@@ -11,7 +11,7 @@ type SiteHeaderProps = {
 const navLinks = [
   { href: "/site#platform", label: "Platform" },
   { href: "/site#workflow", label: "Workflow" },
-  { href: "/site#teams", label: "Teams" },
+  { href: "/site#teams", label: "Roles" },
   { href: "/site#faq", label: "FAQ" }
 ];
 
@@ -20,7 +20,7 @@ export function SiteHeader({ minimal = false }: SiteHeaderProps) {
 
   return (
     <header className="site-header-shell">
-      <div className="site-header-inner site-header-revamp">
+      <div className="site-header-inner site-header-revamp site-header-production">
         <Link href="/site" className="site-brand-block" onClick={() => setOpen(false)}>
           <span className="site-brand-mark">F</span>
           <span className="site-brand-copy">
@@ -42,7 +42,7 @@ export function SiteHeader({ minimal = false }: SiteHeaderProps) {
               </nav>
               <nav className="landing-nav-actions landing-nav-actions-rich" aria-label="Primary navigation">
                 <Link href="/login" className="button button-ghost" onClick={() => setOpen(false)}>Sign in</Link>
-                <Link href="/signup" className="button button-primary" onClick={() => setOpen(false)}>Start free</Link>
+                <Link href="/signup" className="button button-primary" onClick={() => setOpen(false)}>Request workspace</Link>
                 <Link href="/contact" className="button button-ghost" onClick={() => setOpen(false)}>Talk to sales</Link>
               </nav>
             </div>

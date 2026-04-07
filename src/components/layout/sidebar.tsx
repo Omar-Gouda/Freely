@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BriefcaseBusiness, CalendarDays, LayoutDashboard, MessageSquare, Settings2, Users, X } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, CalendarDays, LayoutDashboard, LifeBuoy, MessageSquare, Settings2, Users, X } from "lucide-react";
 
 import { appName } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ const navItems = [
   { href: "/interviews", label: "Interviews", icon: CalendarDays },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/outreach", label: "Outreach", icon: MessageSquare },
+  { href: "/help", label: "Support", icon: LifeBuoy },
   { href: "/settings", label: "Settings", icon: Settings2 }
 ];
 

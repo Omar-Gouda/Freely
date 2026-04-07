@@ -36,8 +36,8 @@ export default async function ProfilePage() {
       <WorkspaceHero
         scene="profile"
         eyebrow="Recruiter identity"
-        title="Keep your profile polished with preset avatars and cleaner workspace details."
-        description="Profile photos are now replaced with avatar presets, which keeps storage lighter while still giving the workspace a more intentional feel."
+        title="Keep your profile polished with curated workspace avatars and cleaner account details."
+        description="Choose from the shared avatar library shipped with Freely so every profile stays lightweight, polished, and deployment-friendly."
         stats={[
           { label: "Avatar mode", value: "Preset" },
           { label: "Profile fields", value: "Editable" },
@@ -51,3 +51,4 @@ export default async function ProfilePage() {
     </div>
   );
 }
+

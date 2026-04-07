@@ -1,8 +1,9 @@
-﻿import { KanbanBoard } from "@/components/ats/kanban-board";
+import { KanbanBoard } from "@/components/ats/kanban-board";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Role } from "@/lib/models";
 
 type PipelineCandidate = {
   id: string;
@@ -21,11 +22,15 @@ type PipelinePageProps = {
 export default async function PipelinePage({ searchParams }: PipelinePageProps) {
   const session = await requireSession();
   const params = (searchParams ? await searchParams : {}) ?? {};
-  const jobs = (await db.job.findMany({
+  const allJobs = (await db.job.findMany({
     where: { organizationId: session.organizationId, deletedAt: null },
     orderBy: { createdAt: "desc" },
-    select: { id: true, title: true, status: true }
-  })) as Array<{ id: string; title: string; status: string }>;
+    select: { id: true, title: true, status: true, assignedRecruiterId: true, assignmentHistory: true }
+  })) as Array<{ id: string; title: string; status: string; assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }>;
+
+  const jobs = session.role === Role.RECRUITER
+    ? allJobs.filter((job) => job.assignedRecruiterId === session.id || (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id))
+    : allJobs;
 
   const selectedJobId = params.jobId ?? jobs[0]?.id ?? "";
   const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? null;
@@ -48,9 +53,9 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
     : [];
 
   return (
-    <div className="stack-xl">
-      <SectionHeading title="ATS pipeline" description="Each role has its own pipeline, so recruiters can move candidates through the funnel without mixing jobs together." />
-      <Card className="filter-bar">
+    <div className="stack-xl workspace-screen-shell">
+      <SectionHeading title="Pipeline" description="Move candidates through each role pipeline without mixing recruiter ownership or candidate context." />
+      <Card className="filter-bar filter-bar-rich">
         <form method="GET" className="filter-bar-inline">
           <select name="jobId" className="input" defaultValue={selectedJobId}>
             {jobs.map((job) => (
@@ -67,7 +72,7 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
             <span>{candidates.length} candidate{candidates.length === 1 ? "" : "s"} in this role pipeline</span>
           </div>
         ) : (
-          <p className="muted">Create a job first to open its dedicated pipeline.</p>
+          <p className="muted">No role is visible yet. Ask your org head to assign a job to your workspace.</p>
         )}
       </Card>
       <Card>

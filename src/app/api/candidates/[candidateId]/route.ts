@@ -1,4 +1,4 @@
-﻿import { CandidateStage, NotificationKind } from "@/lib/models";
+import { CandidateStage, NotificationKind, Role } from "@/lib/models";
 import { NextRequest } from "next/server";
 
 import { requireApiSession } from "@/lib/api-auth";
@@ -24,6 +24,26 @@ function blendScore(cvScore?: number | null, englishScore?: number | null, expli
   return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
 }
 
+async function getVisibleJobIds(session: { organizationId: string; role: Role; id: string }) {
+  const jobs = await db.job.findMany({
+    where: {
+      organizationId: session.organizationId,
+      deletedAt: null
+    }
+  });
+
+  if (session.role !== Role.RECRUITER) {
+    return jobs.map((job: { id: string }) => job.id);
+  }
+
+  return jobs
+    .filter((job: { assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }) => (
+      job.assignedRecruiterId === session.id ||
+      (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id)
+    ))
+    .map((job: { id: string }) => job.id);
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ candidateId: string }> }) {
   const auth = await requireApiSession(request);
   if ("error" in auth) return auth.error;
@@ -34,12 +54,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return fail("Invalid candidate payload", 400, payload.error.flatten());
   }
 
+  const visibleJobIds = await getVisibleJobIds(auth.session);
   const current = await db.candidate.findFirst({
     where: { id: candidateId, organizationId: auth.session.organizationId, deletedAt: null }
   });
 
   if (!current) {
     return fail("Candidate not found", 404);
+  }
+
+  if (auth.session.role === Role.RECRUITER && !visibleJobIds.includes(current.jobId)) {
+    return fail("Recruiters can only update candidates on their assigned jobs.", 403);
   }
 
   const nextStage = payload.data.stage ?? current.stage;
@@ -117,7 +142,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ candidateId: string }> }) {
-  const auth = await requireApiSession(request);
+  const auth = await requireApiSession(request, [Role.ADMIN, Role.ORG_HEAD]);
   if ("error" in auth) return auth.error;
   const { candidateId } = await params;
 

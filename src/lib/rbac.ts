@@ -1,4 +1,4 @@
-import { Role } from "@/lib/models";
+import { OrganizationStatus, Role } from "@/lib/models";
 
 export const workspaceManagerRoles = [Role.ADMIN, Role.ORG_HEAD] as const;
 
@@ -14,6 +14,10 @@ export function requireRole(role: Role, allowed: Role[]) {
 
 export function canManageWorkspace(role: Role) {
   return role === Role.ADMIN || role === Role.ORG_HEAD;
+}
+
+export function canManageGlobalPlatform(role: Role) {
+  return role === Role.ADMIN;
 }
 
 export function canAssignAnyRole(role: Role) {
@@ -54,5 +58,20 @@ export function roleLabel(role: Role) {
       return "Recruiter";
     default:
       return role;
+  }
+}
+
+export function organizationStatusLabel(status: OrganizationStatus) {
+  switch (status) {
+    case OrganizationStatus.PENDING_APPROVAL:
+      return "Pending approval";
+    case OrganizationStatus.ACTIVE:
+      return "Active";
+    case OrganizationStatus.SUSPENDED:
+      return "Suspended";
+    case OrganizationStatus.CONTRACT_ENDED:
+      return "Contract ended";
+    default:
+      return status;
   }
 }

@@ -3,26 +3,26 @@ import Link from "next/link";
 export function SiteFooter({ minimal = false }: { minimal?: boolean }) {
   return (
     <footer className="site-footer-shell">
-      <div className="site-footer-inner site-footer-revamp">
+      <div className="site-footer-inner site-footer-revamp site-footer-production">
         <div className="site-footer-grid site-footer-grid-rich">
           <div className="site-footer-brand">
             <strong>Freely</strong>
             <p className="muted">Recruitment OS for structured hiring teams.</p>
-            <small>Plan jobs, parse resumes, review interviews, save scorecards, and keep recruiter follow-up organized from one clean workspace.</small>
+            <small>Jobs, candidates, interviews, recruiter ownership, and organization approval stay inside one calmer system.</small>
           </div>
 
           {minimal ? (
             <div className="site-footer-mini-note">
-              <small className="muted">Built for focused hiring teams that want clarity without the clutter.</small>
+              <small className="muted">Built for recruitment teams that need clarity, control, and cleaner execution.</small>
             </div>
           ) : (
             <>
               <div>
                 <h3>Explore</h3>
                 <nav className="site-footer-links" aria-label="Platform links">
-                  <Link href="/site#platform">Platform overview</Link>
-                  <Link href="/site#workflow">Hiring workflow</Link>
-                  <Link href="/site#teams">Team modes</Link>
+                  <Link href="/site#platform">Platform</Link>
+                  <Link href="/site#workflow">Workflow</Link>
+                  <Link href="/site#teams">Roles</Link>
                   <Link href="/site#faq">Questions</Link>
                 </nav>
               </div>
@@ -30,7 +30,7 @@ export function SiteFooter({ minimal = false }: { minimal?: boolean }) {
                 <h3>Access</h3>
                 <nav className="site-footer-links" aria-label="Access links">
                   <Link href="/login">Sign in</Link>
-                  <Link href="/signup">Create workspace</Link>
+                  <Link href="/signup">Request workspace</Link>
                   <Link href="/contact">Book a walkthrough</Link>
                 </nav>
               </div>

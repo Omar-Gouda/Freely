@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-import { NotificationKind } from "@/lib/models";
+import { NotificationKind, Role } from "@/lib/models";
 import { createAuditLog } from "@/lib/audit";
 import { requireApiSession } from "@/lib/api-auth";
 import { db } from "@/lib/db";
@@ -9,14 +9,37 @@ import { log } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications";
 import { candidateSchema } from "@/lib/validators";
 
+async function getVisibleJobIds(session: { organizationId: string; role: Role; id: string }) {
+  const jobs = await db.job.findMany({
+    where: {
+      organizationId: session.organizationId,
+      deletedAt: null
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  if (session.role !== Role.RECRUITER) {
+    return jobs.map((job: { id: string }) => job.id);
+  }
+
+  return jobs
+    .filter((job: { assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }) => (
+      job.assignedRecruiterId === session.id ||
+      (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id)
+    ))
+    .map((job: { id: string }) => job.id);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireApiSession(request);
     if ("error" in auth) return auth.error;
 
+    const visibleJobIds = await getVisibleJobIds(auth.session);
     const candidates = await db.candidate.findMany({
       where: {
         organizationId: auth.session.organizationId,
+        jobId: auth.session.role === Role.RECRUITER ? { in: visibleJobIds } : undefined,
         deletedAt: null
       },
       orderBy: [
@@ -42,13 +65,17 @@ export async function POST(request: NextRequest) {
     if ("error" in auth) return auth.error;
 
     const body = await request.json();
-
     const parsed = candidateSchema.safeParse(body);
     if (!parsed.success) {
       return fail("Invalid candidate payload", 400, parsed.error.flatten());
     }
 
     const data = parsed.data;
+    const visibleJobIds = await getVisibleJobIds(auth.session);
+
+    if (auth.session.role === Role.RECRUITER && !visibleJobIds.includes(data.jobId)) {
+      return fail("Recruiters can only add candidates to jobs assigned to them.", 403);
+    }
 
     const job = await db.job.findFirst({
       where: {
@@ -95,7 +122,7 @@ export async function POST(request: NextRequest) {
         organizationId: auth.session.organizationId,
         kind: NotificationKind.NEW_APPLICANT,
         title: "New applicant added",
-        message: `${candidate.firstName} ${candidate.lastName} applied for ${job.title}`
+        message: `${candidate.firstName} ${candidate.lastName} was added for ${job.title}`
       }),
       createAuditLog({
         organizationId: auth.session.organizationId,

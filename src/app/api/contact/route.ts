@@ -4,11 +4,18 @@ import { NextRequest } from "next/server";
 import { createAuditLog } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
-import { getEmailConfigStatus, isEmailEnabled, sendEmail } from "@/lib/email";
 import { fail, ok } from "@/lib/http";
-import { NotificationKind, Role } from "@/lib/models";
+import { NotificationKind, Role, SupportMessageAuthorType, SupportThreadSource, SupportThreadStatus, UserAccountStatus } from "@/lib/models";
 import { contactRequestSchema } from "@/lib/validators";
+
+async function getActiveAdmins() {
+  const admins = await db.user.findMany({
+    where: { role: Role.ADMIN, deletedAt: null },
+    orderBy: { createdAt: "asc" }
+  });
+
+  return admins.filter((admin: { accountStatus?: string | null }) => (admin.accountStatus ?? UserAccountStatus.ACTIVE) === UserAccountStatus.ACTIVE);
+}
 
 export async function POST(request: NextRequest) {
   const payload = contactRequestSchema.safeParse(await request.json());
@@ -16,86 +23,68 @@ export async function POST(request: NextRequest) {
     return fail("Please fill in your name, email, subject, and a message before sending.", 400, payload.error.flatten());
   }
 
-  const admins = (await db.user.findMany({
-    where: {
-      role: Role.ADMIN,
-      deletedAt: null
-    },
-    orderBy: { createdAt: "asc" }
-  })) as Array<{ id: string; organizationId: string; fullName: string; email: string }>;
-
+  const admins = await getActiveAdmins();
   const fallbackOrganization = (await db.organization.findFirst({})) as { id?: string } | null;
   const platformOrganizationId = admins[0]?.organizationId ?? fallbackOrganization?.id ?? "platform";
-  const requestId = randomUUID();
+  const timestamp = new Date();
 
-  await createAuditLog({
-    organizationId: platformOrganizationId,
-    action: "support.requested",
-    entityType: "support_request",
-    entityId: requestId,
-    meta: {
-      name: payload.data.name,
-      email: payload.data.email,
-      company: payload.data.company || null,
-      subject: payload.data.subject,
-      message: payload.data.message
+  const thread = await db.supportThread.create({
+    data: {
+      id: randomUUID(),
+      organizationId: platformOrganizationId,
+      requesterUserId: null,
+      requesterName: payload.data.name.trim(),
+      requesterEmail: payload.data.email.trim().toLowerCase(),
+      requesterCompany: payload.data.company?.trim() || null,
+      subject: payload.data.subject.trim(),
+      status: SupportThreadStatus.OPEN,
+      source: SupportThreadSource.PUBLIC_CONTACT,
+      assignedAdminUserId: null,
+      lastMessageAt: timestamp,
+      resolvedAt: null,
+      messages: [{
+        id: randomUUID(),
+        authorType: SupportMessageAuthorType.EXTERNAL,
+        authorUserId: null,
+        authorName: payload.data.name.trim(),
+        authorEmail: payload.data.email.trim().toLowerCase(),
+        body: payload.data.message.trim(),
+        createdAt: timestamp,
+        deliveredByEmail: false
+      }],
+      createdAt: timestamp,
+      updatedAt: timestamp
     }
   });
 
   if (admins.length) {
     await Promise.all(
-      admins.map((admin) => createNotification({
+      admins.map((admin: { id: string; organizationId: string }) => createNotification({
         organizationId: admin.organizationId,
         userId: admin.id,
         kind: NotificationKind.SYSTEM,
-        title: `Support request: ${payload.data.subject}`,
-        message: `${payload.data.name} (${payload.data.email})${payload.data.company ? ` from ${payload.data.company}` : ""}: ${payload.data.message}`
+        title: `Public support request: ${thread.subject}`,
+        message: `${thread.requesterName} submitted a request from the public contact page.`
       }))
     );
   }
 
-  const supportEmail = env.SUPPORT_EMAIL || env.EMAIL_FROM;
-  let emailDelivered = false;
-  let warning: string | null = null;
-
-  if (supportEmail && isEmailEnabled()) {
-    const result = await sendEmail({
-      to: supportEmail,
-      replyTo: payload.data.email,
-      subject: `[Freely contact] ${payload.data.subject}`,
-      text: [
-        `Name: ${payload.data.name}`,
-        `Email: ${payload.data.email}`,
-        `Company: ${payload.data.company || "Not provided"}`,
-        `Request ID: ${requestId}`,
-        "",
-        payload.data.message
-      ].join("\n"),
-      html: `
-        <div style="font-family: Manrope, Arial, sans-serif; color: #24123a; line-height: 1.6;">
-          <p><strong>Name:</strong> ${payload.data.name}</p>
-          <p><strong>Email:</strong> ${payload.data.email}</p>
-          <p><strong>Company:</strong> ${payload.data.company || "Not provided"}</p>
-          <p><strong>Request ID:</strong> ${requestId}</p>
-          <p><strong>Message:</strong></p>
-          <p>${payload.data.message.replace(/\n/g, "<br />")}</p>
-        </div>
-      `
-    });
-
-    emailDelivered = !result.skipped;
-    warning = result.skipped ? result.reason ?? null : null;
-  } else {
-    const emailStatus = getEmailConfigStatus();
-    warning = emailStatus.enabled
-      ? "Support email delivery is not available yet, but your message was still recorded inside Freely."
-      : `Support email is not configured. Missing: ${emailStatus.missing.join(", ")}`;
-  }
+  await createAuditLog({
+    organizationId: platformOrganizationId,
+    action: "support.public_requested",
+    entityType: "support_thread",
+    entityId: thread.id,
+    meta: {
+      name: payload.data.name,
+      email: payload.data.email,
+      company: payload.data.company || null,
+      subject: payload.data.subject
+    }
+  });
 
   return ok({
     submitted: true,
-    requestId,
-    channel: emailDelivered ? (admins.length ? "email-and-notification" : "email") : (admins.length ? "notification" : "logged"),
-    warning
+    threadId: thread.id,
+    warning: null
   }, { status: 201 });
 }

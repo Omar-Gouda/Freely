@@ -27,15 +27,15 @@ async function readResponse(response: Response, fallback: string) {
 }
 
 const registrationHighlights = [
-  "Create a dedicated recruiting workspace with separate access control",
-  "Set your first account as the workspace organization head automatically",
-  "Start using the workspace right away when direct signup is enabled"
+  "Submit your organization workspace for admin approval",
+  "Set the first approved user as the organization head",
+  "Start with clean role ownership before inviting recruiters"
 ];
 
 export default function SignupPage() {
   const router = useRouter();
   const { pushToast } = useToast();
-  const [accountType, setAccountType] = useState<AccountType>(AccountType.PERSONAL);
+  const [accountType, setAccountType] = useState<AccountType>(AccountType.ORGANIZATIONAL);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(formData: FormData) {
@@ -66,7 +66,7 @@ export default function SignupPage() {
       const payload = await readResponse(response, "Signup failed");
 
       if (!response.ok) {
-        pushToast({ title: "Signup failed", description: payload.error ?? "Please try again.", tone: "error" });
+        pushToast({ title: "Request failed", description: payload.error ?? "Please try again.", tone: "error" });
         return;
       }
 
@@ -76,22 +76,22 @@ export default function SignupPage() {
         return;
       }
 
-      pushToast({ title: "Account created", description: payload.data?.message ?? "Your account was created successfully.", tone: "success" });
+      pushToast({ title: "Request submitted", description: payload.data?.message ?? "Your organization request was submitted successfully.", tone: "success" });
     } catch {
-      pushToast({ title: "Signup failed", description: "Unable to create your account right now. Please try again.", tone: "error" });
+      pushToast({ title: "Request failed", description: "Unable to create your account right now. Please try again.", tone: "error" });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="auth-shell">
+    <div className="auth-shell auth-shell-production">
       <SiteHeader minimal />
-      <div className="auth-page auth-page-register">
-        <Card className="auth-card auth-hero auth-hero-register">
-          <span className="eyebrow">Workspace signup</span>
-          <h1>Create your workspace and start hiring from one organized command center.</h1>
-          <p>Freely keeps onboarding simple so teams can move from account setup to live recruiting without extra setup clutter.</p>
+      <div className="auth-page auth-page-register auth-page-production">
+        <Card className="auth-card auth-hero auth-hero-register auth-hero-production">
+          <span className="eyebrow">Organization access</span>
+          <h1>Request your recruitment workspace and launch with cleaner control.</h1>
+          <p>Freely is built for recruitment organizations that need separate job ownership, candidate records, recruiter teams, and admin-approved access.</p>
           <div className="auth-checklist">
             {registrationHighlights.map((item) => (
               <div key={item} className="auth-checklist-item">
@@ -100,21 +100,21 @@ export default function SignupPage() {
             ))}
           </div>
         </Card>
-        <Card className="auth-card auth-card-register">
+        <Card className="auth-card auth-card-register auth-card-production">
           <div className="stack-md">
             <div>
-              <h2>Create account</h2>
-              <p className="muted">Choose the workspace type first so your setup matches the right ownership model.</p>
+              <h2>Request workspace</h2>
+              <p className="muted">Your organization stays pending until a platform admin approves access.</p>
             </div>
             <div className="schedule-filter-pills">
-              <button type="button" className={`schedule-filter-pill${accountType === AccountType.PERSONAL ? " active" : ""}`} onClick={() => setAccountType(AccountType.PERSONAL)}>Personal</button>
-              <button type="button" className={`schedule-filter-pill${accountType === AccountType.ORGANIZATIONAL ? " active" : ""}`} onClick={() => setAccountType(AccountType.ORGANIZATIONAL)}>Organizational head</button>
+              <button type="button" className={`schedule-filter-pill${accountType === AccountType.PERSONAL ? " active" : ""}`} onClick={() => setAccountType(AccountType.PERSONAL)}>Independent recruiter</button>
+              <button type="button" className={`schedule-filter-pill${accountType === AccountType.ORGANIZATIONAL ? " active" : ""}`} onClick={() => setAccountType(AccountType.ORGANIZATIONAL)}>Organization</button>
             </div>
             <form className="stack-md" action={handleSubmit}>
               <div className="job-form-grid auth-form-grid">
                 <label className="field-shell field-shell-full">
                   <span>{accountType === AccountType.ORGANIZATIONAL ? "Organization name" : "Workspace name"}</span>
-                  <Input name="workspaceName" placeholder={accountType === AccountType.ORGANIZATIONAL ? "Freely Talent Partners" : "Omar's Personal Workspace"} required />
+                  <Input name="workspaceName" placeholder={accountType === AccountType.ORGANIZATIONAL ? "Freely Talent Partners" : "Independent recruiter workspace"} required />
                 </label>
                 <label className="field-shell">
                   <span>Full name</span>
@@ -133,11 +133,11 @@ export default function SignupPage() {
                   <Input name="confirmPassword" type="password" placeholder="Re-enter password" required />
                 </label>
               </div>
-              <p className="muted">Create the account once, then continue into your workspace to finish setup and invite your team.</p>
-              <Button type="submit" disabled={loading}>{loading ? "Creating account..." : "Create workspace account"}</Button>
+              <p className="muted">After approval, the organization head can create recruiter accounts and start assigning jobs.</p>
+              <Button type="submit" disabled={loading}>{loading ? "Submitting request..." : "Submit workspace request"}</Button>
             </form>
           </div>
-          <p className="muted">Already have access? <Link href="/login">Sign in</Link></p>
+          <p className="muted">Already approved? <Link href="/login">Sign in</Link></p>
         </Card>
       </div>
       <SiteFooter minimal />

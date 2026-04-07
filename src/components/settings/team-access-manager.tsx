@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useToast } from "@/components/feedback/toast";
 import { Badge } from "@/components/ui/badge";
@@ -43,27 +43,46 @@ export function TeamAccessManager({
   currentUserId,
   organizations,
   currentOrganizationId,
-  canManageRoles
+  canManageRoles,
+  canManageLifecycle,
+  selectedOrganizationId,
+  hideOrganizationFilter = false
 }: {
   initialUsers: TeamUser[];
   currentUserId: string;
   organizations: OrganizationOption[];
   currentOrganizationId: string;
   canManageRoles: boolean;
+  canManageLifecycle: boolean;
+  selectedOrganizationId?: string;
+  hideOrganizationFilter?: boolean;
 }) {
   const { pushToast } = useToast();
   const [users, setUsers] = useState(initialUsers);
-  const [selectedOrganizationId, setSelectedOrganizationId] = useState(canManageRoles ? "all" : currentOrganizationId);
+  const [localOrganizationId, setLocalOrganizationId] = useState(canManageRoles ? "all" : currentOrganizationId);
   const [draftRoles, setDraftRoles] = useState<Record<string, Role>>(() => Object.fromEntries(initialUsers.map((user) => [user.id, user.role])));
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
+  useEffect(() => {
+    setUsers(initialUsers);
+    setDraftRoles(Object.fromEntries(initialUsers.map((user) => [user.id, user.role])));
+  }, [initialUsers]);
+
+  useEffect(() => {
+    if (selectedOrganizationId) {
+      setLocalOrganizationId(selectedOrganizationId);
+    }
+  }, [selectedOrganizationId]);
+
+  const effectiveOrganizationId = selectedOrganizationId ?? localOrganizationId;
+
   const filteredUsers = useMemo(() => {
-    if (!canManageRoles || selectedOrganizationId === "all") {
+    if (!canManageRoles || effectiveOrganizationId === "all") {
       return users;
     }
 
-    return users.filter((user) => user.organizationId === selectedOrganizationId);
-  }, [canManageRoles, selectedOrganizationId, users]);
+    return users.filter((user) => user.organizationId === effectiveOrganizationId);
+  }, [canManageRoles, effectiveOrganizationId, users]);
 
   const activeAdminCount = useMemo(
     () => users.filter((user) => user.role === Role.ADMIN && (user.accountStatus ?? UserAccountStatus.ACTIVE) === UserAccountStatus.ACTIVE).length,
@@ -123,7 +142,7 @@ export function TeamAccessManager({
       pushToast({
         title: action === "deactivate" ? "Account deactivated" : "Account reactivated",
         description: action === "deactivate"
-          ? "The user can no longer sign in. Their account is now scheduled for permanent cleanup in 5 days unless reactivated."
+          ? "The user can no longer sign in until access is restored."
           : "The user can sign in again immediately.",
         tone: "success"
       });
@@ -153,7 +172,7 @@ export function TeamAccessManager({
       }
 
       setUsers((current) => current.filter((user) => user.id !== userId));
-      pushToast({ title: "Account removed", description: "The account was removed permanently from Freely.", tone: "success" });
+      pushToast({ title: "Account removed", description: "The account was removed from Freely.", tone: "success" });
     } finally {
       setBusyAction(null);
     }
@@ -163,13 +182,13 @@ export function TeamAccessManager({
     <div className="team-access-list">
       <div className="team-access-toolbar">
         <div>
-          <p className="muted">Admins can filter by organization, deactivate access, reactivate accounts within 5 days, or remove an account permanently.</p>
+          <p className="muted">Use this panel to keep recruiter access clean, roles clear, and the team aligned with the selected organization.</p>
           <small>{filteredUsers.length} account{filteredUsers.length === 1 ? "" : "s"} visible</small>
         </div>
-        {canManageRoles ? (
+        {canManageRoles && !hideOrganizationFilter ? (
           <label className="field-shell team-access-filter">
             <span>Organization</span>
-            <select className="input compact-input" value={selectedOrganizationId} onChange={(event) => setSelectedOrganizationId(event.target.value)}>
+            <select className="input compact-input" value={effectiveOrganizationId} onChange={(event) => setLocalOrganizationId(event.target.value)}>
               <option value="all">All organizations</option>
               {organizations.map((organization) => (
                 <option key={organization.id} value={organization.id}>{organization.name}</option>
@@ -199,7 +218,7 @@ export function TeamAccessManager({
                 <span className={`account-status-pill${isDeactivated ? " deactivated" : ""}`}>{isDeactivated ? "Deactivated" : "Active"}</span>
               </div>
               <p>{user.email}</p>
-              {isDeactivated && scheduledDeletionLabel ? <small>Scheduled for permanent removal on {scheduledDeletionLabel}</small> : null}
+              {isDeactivated && scheduledDeletionLabel ? <small>Scheduled cleanup was set for {scheduledDeletionLabel}</small> : null}
             </div>
             <div className="team-access-controls team-access-controls-rich">
               {canManageRoles ? (
@@ -217,25 +236,27 @@ export function TeamAccessManager({
                   <Button type="button" variant="secondary" onClick={() => void saveRole(user.id)} disabled={isBusy || !hasChanged || isLastAdminSelfDemotion}>
                     {busyAction === `role:${user.id}` ? "Saving..." : "Save"}
                   </Button>
+                </>
+              ) : (
+                <Badge>{roleLabel(user.role)}</Badge>
+              )}
+
+              {canManageLifecycle && !isCurrentUser ? (
+                <>
                   {isDeactivated ? (
-                    <Button type="button" variant="secondary" onClick={() => void updateLifecycle(user.id, "reactivate")} disabled={isBusy || isCurrentUser}>
+                    <Button type="button" variant="secondary" onClick={() => void updateLifecycle(user.id, "reactivate")} disabled={isBusy}>
                       {busyAction === `reactivate:${user.id}` ? "Reactivating..." : "Reactivate"}
                     </Button>
                   ) : (
-                    <Button type="button" variant="secondary" onClick={() => void updateLifecycle(user.id, "deactivate")} disabled={isBusy || isCurrentUser}>
+                    <Button type="button" variant="secondary" onClick={() => void updateLifecycle(user.id, "deactivate")} disabled={isBusy}>
                       {busyAction === `deactivate:${user.id}` ? "Deactivating..." : "Deactivate"}
                     </Button>
                   )}
-                  <button type="button" className="button button-danger" onClick={() => void removeUser(user.id, user.fullName)} disabled={isBusy || isCurrentUser}>
+                  <button type="button" className="button button-danger" onClick={() => void removeUser(user.id, user.fullName)} disabled={isBusy}>
                     {busyAction === `remove:${user.id}` ? "Removing..." : "Remove"}
                   </button>
                 </>
-              ) : (
-                <>
-                  <Badge>{roleLabel(user.role)}</Badge>
-                  <span className={`account-status-pill${isDeactivated ? " deactivated" : ""}`}>{isDeactivated ? "Deactivated" : "Active"}</span>
-                </>
-              )}
+              ) : null}
             </div>
           </div>
         );
@@ -243,4 +264,3 @@ export function TeamAccessManager({
     </div>
   );
 }
-

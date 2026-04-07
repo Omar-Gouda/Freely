@@ -11,7 +11,15 @@ export function DashboardShell({
   user
 }: {
   children: import("react").ReactNode;
-  user: { id: string; fullName?: string | null; email: string; avatarUrl?: string | null; onboardingCompleted?: boolean | null };
+  user: {
+    id: string;
+    fullName?: string | null;
+    email: string;
+    avatarUrl?: string | null;
+    onboardingCompleted?: boolean | null;
+    organizationName?: string | null;
+    role?: string;
+  };
 }) {
   const [navOpen, setNavOpen] = useState(false);
 
@@ -19,7 +27,14 @@ export function DashboardShell({
     <div className={`app-shell app-shell-responsive ${navOpen ? "app-shell-nav-open" : ""}`.trim()}>
       <Sidebar isOpen={navOpen} onClose={() => setNavOpen(false)} />
       <div className="content-shell content-shell-responsive">
-        <Topbar name={user.fullName ?? user.email} email={user.email} avatarUrl={user.avatarUrl} onMenuToggle={() => setNavOpen((current) => !current)} />
+        <Topbar
+          name={user.fullName ?? user.email}
+          email={user.email}
+          avatarUrl={user.avatarUrl}
+          organizationName={user.organizationName}
+          roleLabel={user.role}
+          onMenuToggle={() => setNavOpen((current) => !current)}
+        />
         <main className="page-content page-content-responsive">{children}</main>
         <GetStartedTour userId={user.id} completedInitially={Boolean(user.onboardingCompleted)} />
       </div>

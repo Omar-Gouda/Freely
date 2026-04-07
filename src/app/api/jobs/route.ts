@@ -1,10 +1,12 @@
-﻿import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
+import { NextRequest } from "next/server";
 
 import { aiProvider } from "@/lib/ai/provider";
 import { requireApiSession } from "@/lib/api-auth";
 import { createAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
+import { Role } from "@/lib/models";
 import { jobSchema } from "@/lib/validators";
 
 function matchSalary(rawDescription: string) {
@@ -41,12 +43,39 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireApiSession(request);
+  const auth = await requireApiSession(request, [Role.ADMIN, Role.ORG_HEAD]);
   if ("error" in auth) return auth.error;
 
   const payload = jobSchema.safeParse(await request.json());
   if (!payload.success) {
     return fail("Invalid job payload", 400, payload.error.flatten());
+  }
+
+  let assignedRecruiterId: string | null = null;
+  let assignmentHistory: Array<{ id: string; recruiterId: string; assignedById: string; assignedAt: Date; withdrawnAt: Date | null }> = [];
+
+  if (payload.data.assignedRecruiterId) {
+    const recruiter = await db.user.findFirst({
+      where: {
+        id: payload.data.assignedRecruiterId,
+        organizationId: auth.session.organizationId,
+        role: Role.RECRUITER,
+        deletedAt: null
+      }
+    });
+
+    if (!recruiter) {
+      return fail("Assigned recruiter not found in this organization.", 404);
+    }
+
+    assignedRecruiterId = recruiter.id;
+    assignmentHistory = [{
+      id: randomUUID(),
+      recruiterId: recruiter.id,
+      assignedById: auth.session.id,
+      assignedAt: new Date(),
+      withdrawnAt: null
+    }];
   }
 
   const manualRequirements = [...payload.data.mustHaveRequirements, ...payload.data.niceToHaveRequirements].slice(0, 8);
@@ -64,6 +93,8 @@ export async function POST(request: NextRequest) {
     data: {
       organizationId: auth.session.organizationId,
       createdById: auth.session.id,
+      assignedRecruiterId,
+      assignmentHistory,
       title: payload.data.title,
       rawDescription: payload.data.rawDescription,
       structuredData: {
@@ -105,7 +136,8 @@ export async function POST(request: NextRequest) {
     userId: auth.session.id,
     action: "job.created",
     entityType: "job",
-    entityId: job.id
+    entityId: job.id,
+    meta: { assignedRecruiterId }
   });
 
   return ok(job, { status: 201 });

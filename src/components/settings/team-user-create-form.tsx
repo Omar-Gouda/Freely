@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { useToast } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export function TeamUserCreateForm({
   provisioningReady: boolean;
   provisioningMessage?: string;
 }) {
+  const router = useRouter();
   const { pushToast } = useToast();
   const formRef = useRef<HTMLFormElement | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,6 +64,7 @@ export function TeamUserCreateForm({
 
       formRef.current?.reset();
       pushToast({ title: "Team account created", description: "The new team member can now sign in with the credentials you created.", tone: "success" });
+      router.refresh();
 
       if (payload.data?.emailWarning) {
         pushToast({ title: "Email not delivered", description: payload.data.emailWarning, tone: "info" });

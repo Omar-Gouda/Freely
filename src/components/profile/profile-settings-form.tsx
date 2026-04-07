@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useToast } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
-import { avatarPresets } from "@/lib/avatar-presets";
+import { avatarPresets, isAvatarPresetUrl } from "@/lib/avatar-presets";
 
 export type Profile = {
   username: string | null;
@@ -33,7 +33,7 @@ export function ProfileSettingsForm({ initialProfile }: { initialProfile: Profil
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [skills, setSkills] = useState((initialProfile.skills ?? []).join(", "));
-  const [avatarUrl, setAvatarUrl] = useState(initialProfile.avatarUrl ?? avatarPresets[0]?.src ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(isAvatarPresetUrl(initialProfile.avatarUrl) ? (initialProfile.avatarUrl ?? "") : (avatarPresets[0]?.src ?? ""));
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
@@ -176,3 +176,5 @@ export function ProfileSettingsForm({ initialProfile }: { initialProfile: Profil
     </div>
   );
 }
+
+

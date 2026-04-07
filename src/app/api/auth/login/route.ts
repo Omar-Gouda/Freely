@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 
 import { syncApprovedLocalUser } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { fail } from "@/lib/http";
 import { log } from "@/lib/logger";
-import { UserAccountStatus } from "@/lib/models";
+import { OrganizationStatus, UserAccountStatus } from "@/lib/models";
 import { loginSchema } from "@/lib/validators";
 import { createRouteHandlerClient } from "@/utils/supabase/route";
 
@@ -34,6 +35,28 @@ export async function POST(request: NextRequest) {
     if (!sessionUser) {
       await supabase.auth.signOut();
       return json({ error: "This account is not active in the platform yet." }, { status: 403 });
+    }
+
+    const organization = await db.organization.findFirst({
+      where: {
+        id: sessionUser.organizationId,
+        deletedAt: null
+      }
+    });
+
+    if (!organization) {
+      await supabase.auth.signOut();
+      return json({ error: "This organization is no longer available in Freely." }, { status: 403 });
+    }
+
+    if (organization.status === OrganizationStatus.PENDING_APPROVAL) {
+      await supabase.auth.signOut();
+      return json({ error: "Your organization is waiting for admin approval before access is enabled." }, { status: 403 });
+    }
+
+    if (organization.status !== OrganizationStatus.ACTIVE) {
+      await supabase.auth.signOut();
+      return json({ error: "This organization is currently inactive. Please contact the platform admin." }, { status: 403 });
     }
 
     if (sessionUser.accountStatus === UserAccountStatus.DEACTIVATED) {

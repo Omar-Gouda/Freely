@@ -4,13 +4,14 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { db } from "@/lib/db";
-import { Role, UserAccountStatus, type User } from "@/lib/models";
+import { OrganizationStatus, Role, UserAccountStatus, type User } from "@/lib/models";
 import { createClient } from "@/utils/supabase/server";
 
 export type Session = {
   id: string;
   email: string;
   organizationId: string;
+  organizationName?: string | null;
   role: Role;
   fullName?: string | null;
   avatarUrl?: string | null;
@@ -66,7 +67,7 @@ export async function getUniqueOrganizationSlug(name: string) {
   let nextSlug = baseSlug;
   let suffix = 1;
 
-  while (await db.organization.findFirst({ where: { slug: nextSlug } })) {
+  while (await db.organization.findFirst({ where: { slug: nextSlug, deletedAt: null } })) {
     suffix += 1;
     nextSlug = `${baseSlug}-${suffix}`;
   }
@@ -74,36 +75,7 @@ export async function getUniqueOrganizationSlug(name: string) {
   return nextSlug;
 }
 
-async function createWorkspaceUserFromSupabase(supabaseUser: SupabaseUser): Promise<User> {
-  const email = getSupabaseEmail(supabaseUser);
-  const fullName = getUserMetadataValue(supabaseUser, "full_name") ?? email.split("@")[0] ?? "Workspace Owner";
-  const workspaceName = getDefaultWorkspaceName(supabaseUser, email);
-  const slug = await getUniqueOrganizationSlug(workspaceName);
-
-  const organization = await db.organization.create({
-    data: {
-      name: workspaceName,
-      slug
-    }
-  });
-
-  return db.user.create({
-    data: {
-      organizationId: organization.id,
-      supabaseAuthId: supabaseUser.id,
-      email,
-      passwordHash: "",
-      fullName,
-      role: Role.ORG_HEAD,
-      accountStatus: UserAccountStatus.ACTIVE,
-      deactivatedAt: null,
-      scheduledDeletionAt: null,
-      onboardingCompleted: false
-    }
-  });
-}
-
-async function syncLocalUser(dbUser: User, supabaseUser: SupabaseUser): Promise<User> {
+export async function syncLocalUser(dbUser: User, supabaseUser: SupabaseUser): Promise<User> {
   const nextEmail = getSupabaseEmail(supabaseUser);
   const nextFullName = getUserMetadataValue(supabaseUser, "full_name") ?? dbUser.fullName;
   const updates: Record<string, unknown> = {};
@@ -161,11 +133,7 @@ export async function syncApprovedLocalUser(supabaseUser: SupabaseUser): Promise
   });
 
   if (!dbUser) {
-    if (!getUserMetadataValue(supabaseUser, "workspace_name")) {
-      return null;
-    }
-
-    return createWorkspaceUserFromSupabase(supabaseUser);
+    return null;
   }
 
   return syncLocalUser(dbUser, supabaseUser);
@@ -190,10 +158,22 @@ export async function getSession(): Promise<Session | null> {
     return null;
   }
 
+  const organization = await db.organization.findFirst({
+    where: {
+      id: syncedUser.organizationId,
+      deletedAt: null
+    }
+  });
+
+  if (!organization || organization.status !== OrganizationStatus.ACTIVE) {
+    return null;
+  }
+
   return {
     id: syncedUser.id,
     email: syncedUser.email,
     organizationId: syncedUser.organizationId,
+    organizationName: organization.name,
     role: syncedUser.role,
     fullName: syncedUser.fullName,
     avatarUrl: syncedUser.avatarUrl,
@@ -222,4 +202,9 @@ export async function signOutSession(): Promise<void> {
 
 export async function redirectToSignIn() {
   redirect("/login");
+}
+
+export function getSignupWorkspaceName(user: SupabaseUser) {
+  const email = getSupabaseEmail(user);
+  return getDefaultWorkspaceName(user, email);
 }

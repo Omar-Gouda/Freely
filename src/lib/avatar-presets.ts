@@ -1,10 +1,13 @@
 export const avatarPresets = [
-  { id: "atlas", label: "Atlas", src: "/avatars/avatar-atlas.svg" },
-  { id: "nova", label: "Nova", src: "/avatars/avatar-nova.svg" },
-  { id: "sol", label: "Sol", src: "/avatars/avatar-sol.svg" },
-  { id: "iris", label: "Iris", src: "/avatars/avatar-iris.svg" },
-  { id: "zen", label: "Zen", src: "/avatars/avatar-zen.svg" },
-  { id: "lyra", label: "Lyra", src: "/avatars/avatar-lyra.svg" }
+  { id: "omar", label: "Omar", src: "/Avatar1.png" },
+  { id: "noor", label: "Noor", src: "/Avatar2.png" },
+  { id: "sami", label: "Sami", src: "/Avatar3.png" },
+  { id: "maya", label: "Maya", src: "/Avatar4.png" },
+  { id: "zayd", label: "Zayd", src: "/Avatar5.png" },
+  { id: "lara", label: "Lara", src: "/GirlyAvatar1.png" },
+  { id: "hana", label: "Hana", src: "/GirlyAvatar2.png" },
+  { id: "reem", label: "Reem", src: "/GirlyAvatar3.png" },
+  { id: "nadia", label: "Nadia", src: "/GirlyAvatar4.png" }
 ] as const;
 
 export const avatarPresetUrls = new Set<string>(avatarPresets.map((avatar) => avatar.src));

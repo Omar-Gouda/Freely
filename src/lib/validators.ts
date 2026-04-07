@@ -1,4 +1,4 @@
-import { AccountType, CandidateStage, InterviewBookingStatus, JobStatus, OutreachKind, Role } from "@/lib/models";
+import { AccountType, CandidateStage, InterviewBookingStatus, JobStatus, OutreachKind, Role, SupportThreadStatus } from "@/lib/models";
 import { z } from "zod";
 
 const optionalUrlSchema = z.preprocess((value) => {
@@ -80,6 +80,19 @@ export const contactRequestSchema = z.object({
   message: z.string().min(10).max(4000)
 });
 
+export const supportThreadCreateSchema = z.object({
+  subject: z.string().min(3).max(120),
+  message: z.string().min(10).max(4000)
+});
+
+export const supportMessageSchema = z.object({
+  message: z.string().min(2).max(4000)
+});
+
+export const supportThreadStatusSchema = z.object({
+  status: z.nativeEnum(SupportThreadStatus)
+});
+
 export const jobSchema = z.object({
   title: z.string().min(2).max(140),
   rawDescription: z.string().min(30).max(12000),
@@ -94,6 +107,7 @@ export const jobSchema = z.object({
   salaryRange: z.string().max(180).optional().or(z.literal("")),
   languageRequirement: z.string().max(80).optional().or(z.literal("")),
   experienceRequirement: z.string().max(160).optional().or(z.literal("")),
+  assignedRecruiterId: z.string().optional().or(z.literal("")),
   mustHaveRequirements: requirementListSchema,
   niceToHaveRequirements: requirementListSchema,
   status: z.nativeEnum(JobStatus).default(JobStatus.DRAFT)
@@ -196,3 +210,5 @@ export const outreachTemplateSchema = z.object({
   candidateIds: z.array(z.string()).optional(),
   interviewTime: z.string().optional().or(z.literal(""))
 });
+
+

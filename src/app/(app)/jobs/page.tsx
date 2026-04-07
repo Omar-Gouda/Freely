@@ -17,6 +17,9 @@ type JobListItem = {
   headcount: number;
   status: string;
   sourceCampaign: string | null;
+  organizationId: string;
+  assignedRecruiterId?: string | null;
+  assignmentHistory?: Array<{ recruiterId: string }>;
   generatedAds: Array<{ id: string; channel: string; content: string }>;
   _count: { candidates: number };
 };
@@ -36,8 +39,11 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   const selectedStatus = params.status ?? "";
   const selectedLocation = params.location ?? "";
 
+  const organizations = (await db.organization.findMany({ where: { deletedAt: null } })) as Array<{ id: string; name: string }>;
+  const organizationDirectory = new Map(organizations.map((organization) => [organization.id, organization.name]));
+
   const jobs = (await db.job.findMany({
-    where: { organizationId: session.organizationId, deletedAt: null },
+    where: session.role === Role.ADMIN ? { deletedAt: null } : { organizationId: session.organizationId, deletedAt: null },
     orderBy: { createdAt: "desc" },
     include: {
       generatedAds: true,
@@ -45,8 +51,12 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     }
   })) as unknown as JobListItem[];
 
-  const filteredJobs = jobs.filter((job) => {
-    const searchable = [job.title, job.location, job.sourceCampaign, ...job.generatedAds.map((ad) => ad.channel)]
+  const scopedJobs = session.role === Role.RECRUITER
+    ? jobs.filter((job) => job.assignedRecruiterId === session.id || (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id))
+    : jobs;
+
+  const filteredJobs = scopedJobs.filter((job) => {
+    const searchable = [job.title, job.location, job.sourceCampaign, organizationDirectory.get(job.organizationId), ...job.generatedAds.map((ad) => ad.channel)]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -66,30 +76,31 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     return true;
   });
 
-  const locationOptions = Array.from(new Set(jobs.map((job) => job.location).filter((value): value is string => Boolean(value)))).sort();
-  const openJobs = jobs.filter((job) => job.status === JobStatus.OPEN).length;
-  const totalApplicants = jobs.reduce((sum, job) => sum + job._count.candidates, 0);
+  const locationOptions = Array.from(new Set(scopedJobs.map((job) => job.location).filter((value): value is string => Boolean(value)))).sort();
+  const openJobs = scopedJobs.filter((job) => job.status === JobStatus.OPEN).length;
+  const totalApplicants = scopedJobs.reduce((sum, job) => sum + job._count.candidates, 0);
+  const showCreateForm = session.role === Role.ADMIN || session.role === Role.ORG_HEAD;
 
   return (
     <div className="stack-xl workspace-screen-shell">
       <WorkspaceHero
         scene="jobs"
-        eyebrow="Role planning"
-        title="Create cleaner job briefs and keep every hiring requirement structured."
-        description="Jobs now keep manual must-have and nice-to-have requirements, campaign details, and post variants in one responsive workspace."
+        eyebrow={session.role === Role.RECRUITER ? "Assigned roles" : "Job management"}
+        title={session.role === Role.RECRUITER ? "Focus on the jobs you own and the roles you have already worked on." : "Create jobs, assign recruiters, and keep role ownership clear."}
+        description={session.role === Role.RECRUITER ? "Recruiters only see relevant roles so they can move faster without scanning the whole organization." : "Use the jobs workspace to structure role briefs, assign recruiters, and keep candidate demand visible per job."}
         stats={[
+          { label: "Visible jobs", value: String(filteredJobs.length) },
           { label: "Open roles", value: String(openJobs) },
-          { label: "Applicants tracked", value: String(totalApplicants) },
-          { label: "Visible jobs", value: String(filteredJobs.length) }
+          { label: "Applicants tracked", value: String(totalApplicants) }
         ]}
       />
 
-      <div className="page-grid-wide recruiter-workspace-grid workspace-split-layout">
+      <div className={`page-grid-wide recruiter-workspace-grid workspace-split-layout${showCreateForm ? "" : " workspace-split-layout-single"}`.trim()}>
         <div className="stack-xl">
-          <SectionHeading title="Jobs" description="Review open roles, filter quickly, and open the full role detail when needed." />
+          <SectionHeading title="Jobs" description={session.role === Role.RECRUITER ? "These are the jobs currently assigned to you or already worked by you." : "Review open roles, recruiter ownership, and role demand in one list."} />
 
           <form className="filter-bar card filter-bar-rich" method="GET">
-            <Input name="q" defaultValue={params.q ?? ""} placeholder="Search by role, campaign, location, or platform" />
+            <Input name="q" defaultValue={params.q ?? ""} placeholder="Search by role, campaign, recruiter ownership, or location" />
             <select name="status" className="input" defaultValue={selectedStatus}>
               <option value="">All statuses</option>
               {Object.values(JobStatus).map((status) => (
@@ -111,7 +122,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
           {filteredJobs.length ? (
             <div className="talent-card-grid talent-card-grid-roomy">
               {filteredJobs.map((job) => (
-                <JobSummaryCard key={job.id} job={job} />
+                <JobSummaryCard key={job.id} job={{ ...job, organizationName: organizationDirectory.get(job.organizationId) ?? null }} />
               ))}
             </div>
           ) : (
@@ -121,10 +132,12 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             </Card>
           )}
         </div>
-        <Card className="sticky-card workspace-side-card workspace-side-card-rich">
-          <SectionHeading title="Create job" description="Use manual requirements so interviewers can score candidates against the exact brief." />
-          <JobForm canManageStatus={session.role === Role.ADMIN || session.role === Role.ORG_HEAD} />
-        </Card>
+        {showCreateForm ? (
+          <Card className="sticky-card workspace-side-card workspace-side-card-rich">
+            <SectionHeading title="Create job" description="Structure the role brief once, then assign ownership cleanly." />
+            <JobForm canManageStatus={session.role === Role.ADMIN || session.role === Role.ORG_HEAD} />
+          </Card>
+        ) : null}
       </div>
     </div>
   );

@@ -4,17 +4,28 @@ import { ContextLottie } from "@/components/lottie/context-lottie";
 import type { LottieSceneKey } from "@/lib/lottie-scenes";
 
 type WorkspaceHeroProps = {
-  scene: LottieSceneKey;
+  scene?: LottieSceneKey;
   eyebrow: string;
   title: string;
   description: string;
   stats?: Array<{ label: string; value: string }>;
   actions?: Array<{ label: string; href?: string; variant?: "primary" | "ghost" }>;
+  showVisual?: boolean;
+  compactVisual?: boolean;
 };
 
-export function WorkspaceHero({ scene, eyebrow, title, description, stats = [], actions = [] }: WorkspaceHeroProps) {
+export function WorkspaceHero({
+  scene,
+  eyebrow,
+  title,
+  description,
+  stats = [],
+  actions = [],
+  showVisual = false,
+  compactVisual = false
+}: WorkspaceHeroProps) {
   return (
-    <section className="workspace-hero-card card">
+    <section className={`workspace-hero-card card${showVisual ? " workspace-hero-card-with-visual" : ""}`.trim()}>
       <div className="workspace-hero-copy stack-lg">
         <div className="stack-md">
           <p className="eyebrow eyebrow-soft workspace-hero-eyebrow">{eyebrow}</p>
@@ -49,9 +60,11 @@ export function WorkspaceHero({ scene, eyebrow, title, description, stats = [], 
         ) : null}
       </div>
 
-      <div className="workspace-hero-visual">
-        <ContextLottie scene={scene} />
-      </div>
+      {showVisual && scene ? (
+        <div className="workspace-hero-visual">
+          <ContextLottie scene={scene} compact={compactVisual} />
+        </div>
+      ) : null}
     </section>
   );
 }

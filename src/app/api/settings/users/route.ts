@@ -40,6 +40,14 @@ async function getActiveAdminCount() {
   return admins.filter((admin: { accountStatus?: string | null }) => (admin.accountStatus ?? UserAccountStatus.ACTIVE) === UserAccountStatus.ACTIVE).length;
 }
 
+function canManageTargetUser(actor: { role: Role; organizationId: string; id: string }, targetUser: { role: Role; organizationId: string; id: string }) {
+  if (actor.role === Role.ADMIN) {
+    return true;
+  }
+
+  return actor.role === Role.ORG_HEAD && targetUser.organizationId === actor.organizationId && targetUser.role === Role.RECRUITER && targetUser.id !== actor.id;
+}
+
 export async function POST(request: NextRequest) {
   const auth = await requireApiSession(request, [Role.ADMIN, Role.ORG_HEAD]);
   if ("error" in auth) return auth.error;
@@ -60,7 +68,8 @@ export async function POST(request: NextRequest) {
 
   const organization = await db.organization.findFirst({
     where: {
-      id: selectedOrganizationId
+      id: selectedOrganizationId,
+      deletedAt: null
     }
   });
 
@@ -151,7 +160,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireApiSession(request, [Role.ADMIN]);
+  const auth = await requireApiSession(request, [Role.ADMIN, Role.ORG_HEAD]);
   if ("error" in auth) return auth.error;
 
   const body = await request.json();
@@ -174,9 +183,17 @@ export async function PATCH(request: NextRequest) {
     return fail("User not found", 404);
   }
 
+  if (!canManageTargetUser(auth.session, targetUser) && !(rolePayload.success && auth.session.role === Role.ADMIN)) {
+    return fail("You do not have permission to manage this account.", 403);
+  }
+
   const targetStatus = targetUser.accountStatus ?? UserAccountStatus.ACTIVE;
 
   if (rolePayload.success) {
+    if (auth.session.role !== Role.ADMIN) {
+      return fail("Only admins can change account roles.", 403);
+    }
+
     if (targetUser.role === rolePayload.data.role) {
       return ok(targetUser);
     }
@@ -218,7 +235,7 @@ export async function PATCH(request: NextRequest) {
   const lifecycle = lifecyclePayload.success ? lifecyclePayload.data : null;
 
   if (targetUser.id === auth.session.id) {
-    return fail("Use another active admin account to deactivate or remove your own access.", 409);
+    return fail("Use another authorized account to deactivate or remove your own access.", 409);
   }
 
   if (lifecycle && targetUser.role === Role.ADMIN && targetStatus === UserAccountStatus.ACTIVE && lifecycle.action === "deactivate") {
@@ -267,7 +284,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await requireApiSession(request, [Role.ADMIN]);
+  const auth = await requireApiSession(request, [Role.ADMIN, Role.ORG_HEAD]);
   if ("error" in auth) return auth.error;
 
   const payload = deleteUserSchema.safeParse(await request.json());
@@ -286,8 +303,12 @@ export async function DELETE(request: NextRequest) {
     return fail("User not found", 404);
   }
 
+  if (!canManageTargetUser(auth.session, targetUser)) {
+    return fail("You do not have permission to remove this account.", 403);
+  }
+
   if (targetUser.id === auth.session.id) {
-    return fail("Use another active admin account to remove your own access.", 409);
+    return fail("Use another authorized account to remove your own access.", 409);
   }
 
   const targetStatus = targetUser.accountStatus ?? UserAccountStatus.ACTIVE;
@@ -299,7 +320,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    await hardDeleteUserAccount(targetUser.id, { strictAuthDelete: true });
+    await hardDeleteUserAccount(targetUser.id, { strictAuthDelete: auth.session.role === Role.ADMIN });
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Could not remove the account permanently.", 500);
   }
@@ -315,4 +336,3 @@ export async function DELETE(request: NextRequest) {
 
   return ok({ userId: targetUser.id, removed: true });
 }
-

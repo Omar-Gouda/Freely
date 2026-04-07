@@ -14,6 +14,7 @@ import type {
   Organization,
   OutreachTemplate,
   QueueJob,
+  SupportThread,
   User
 } from "@/lib/models";
 
@@ -25,6 +26,7 @@ const collectionNames = {
   interviewSlots: "interviewSlots",
   interviewBookings: "interviewBookings",
   notifications: "notifications",
+  supportThreads: "supportThreads",
   outreachTemplates: "outreachTemplates",
   auditLogs: "auditLogs",
   queueJobs: "queueJobs"
@@ -189,8 +191,30 @@ function project<T extends Record<string, unknown>>(doc: T, select?: Record<stri
   return result;
 }
 
+function normalizeOrganization(organization: Organization): Organization {
+  return {
+    ...organization,
+    status: organization.status ?? "ACTIVE",
+    requestedByEmail: organization.requestedByEmail ?? null,
+    approvedAt: organization.approvedAt ?? null,
+    approvedById: organization.approvedById ?? null,
+    approvalNotes: organization.approvalNotes ?? null,
+    deactivatedAt: organization.deactivatedAt ?? null,
+    contractEndsAt: organization.contractEndsAt ?? null,
+    deletedAt: organization.deletedAt ?? null
+  };
+}
+function normalizeJob(job: Job): Job {
+  return {
+    ...job,
+    assignedRecruiterId: job.assignedRecruiterId ?? null,
+    assignmentHistory: job.assignmentHistory ?? [],
+    candidateIds: job.candidateIds ?? [],
+    generatedAds: job.generatedAds ?? []
+  };
+}
 async function listOrganizations() {
-  return (await fetchAll<Organization>(collectionNames.organizations)).map(stripMongoId);
+  return (await fetchAll<Organization>(collectionNames.organizations)).map(stripMongoId).map(normalizeOrganization);
 }
 
 async function listUsers() {
@@ -198,7 +222,7 @@ async function listUsers() {
 }
 
 async function listJobs() {
-  return (await fetchAll<Job>(collectionNames.jobs)).map(stripMongoId);
+  return (await fetchAll<Job>(collectionNames.jobs)).map(stripMongoId).map(normalizeJob);
 }
 
 async function listCandidates() {
@@ -215,6 +239,10 @@ async function listInterviewBookings() {
 
 async function listNotifications() {
   return (await fetchAll<Notification>(collectionNames.notifications)).map(stripMongoId);
+}
+
+async function listSupportThreads() {
+  return (await fetchAll<SupportThread>(collectionNames.supportThreads)).map(stripMongoId);
 }
 
 async function listOutreachTemplates() {
@@ -321,6 +349,9 @@ async function enrichOutreachTemplate(template: OutreachTemplate, options?: { in
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const db: any = {
   organization: {
+    async count({ where }: { where?: Where }) {
+      return countDocs((await listOrganizations()) as Array<Record<string, unknown>>, where);
+    },
     async findFirst({ where }: { where?: Where }) {
       const organizations = await listOrganizations();
       return organizations.find((item) => matchesWhere(item as Record<string, unknown>, where));
@@ -329,12 +360,35 @@ export const db: any = {
       const organizations = sortDocs((await listOrganizations()).filter((item) => matchesWhere(item as Record<string, unknown>, where)), orderBy);
       return select ? organizations.map((organization) => project(organization as Record<string, unknown>, select)) : organizations;
     },
+    async update({ where, data }: { where: { id: string }; data: Record<string, unknown> }) {
+      const organizations = await listOrganizations();
+      const current = organizations.find((organization) => organization.id === where.id);
+      if (!current) {
+        throw new Error('Organization not found');
+      }
+
+      const updated: Organization = {
+        ...current,
+        ...data,
+        updatedAt: now()
+      } as Organization;
+      await replaceOne(collectionNames.organizations, updated);
+      return updated;
+    },
     async create({ data, include }: { data: Record<string, unknown>; include?: Record<string, unknown> }) {
       const organizationId = typeof data.id === "string" ? data.id : randomUUID();
       const organization: Organization = {
         id: organizationId,
         name: String(data.name),
         slug: String(data.slug),
+        status: (data.status as Organization['status'] | undefined) ?? 'ACTIVE',
+        requestedByEmail: (data.requestedByEmail as string | undefined) ?? null,
+        approvedAt: (data.approvedAt as Date | undefined) ?? null,
+        approvedById: (data.approvedById as string | undefined) ?? null,
+        approvalNotes: (data.approvalNotes as string | undefined) ?? null,
+        deactivatedAt: (data.deactivatedAt as Date | undefined) ?? null,
+        contractEndsAt: (data.contractEndsAt as Date | undefined) ?? null,
+        deletedAt: (data.deletedAt as Date | undefined) ?? null,
         createdAt: now(),
         updatedAt: now()
       };
@@ -473,6 +527,8 @@ export const db: any = {
         id: jobId,
         organizationId: String(data.organizationId),
         createdById: String(data.createdById),
+        assignedRecruiterId: (data.assignedRecruiterId as string | undefined) ?? null,
+        assignmentHistory: (data.assignmentHistory as Job['assignmentHistory'] | undefined) ?? [],
         title: String(data.title),
         rawDescription: String(data.rawDescription),
         structuredData: (data.structuredData as Record<string, unknown> | undefined) ?? null,
@@ -491,6 +547,21 @@ export const db: any = {
 
       await insertOne(collectionNames.jobs, job);
       return include?.generatedAds ? { ...job, generatedAds } : job;
+    },
+    async update({ where, data }: { where: { id: string }; data: Record<string, unknown> }) {
+      const jobs = await listJobs();
+      const current = jobs.find((job) => job.id === where.id);
+      if (!current) {
+        throw new Error('Job not found');
+      }
+
+      const updated: Job = {
+        ...current,
+        ...data,
+        updatedAt: now()
+      } as Job;
+      await replaceOne(collectionNames.jobs, updated);
+      return updated;
     },
     async updateMany({ where, data }: { where?: Where; data: Record<string, unknown> }) {
       const jobs = await listJobs();
@@ -786,6 +857,21 @@ export const db: any = {
     async create({ data }: { data: Notification }) {
       return insertOne(collectionNames.notifications, data);
     },
+    async update({ where, data }: { where: { id: string }; data: Record<string, unknown> }) {
+      const jobs = await listJobs();
+      const current = jobs.find((job) => job.id === where.id);
+      if (!current) {
+        throw new Error('Job not found');
+      }
+
+      const updated: Job = {
+        ...current,
+        ...data,
+        updatedAt: now()
+      } as Job;
+      await replaceOne(collectionNames.jobs, updated);
+      return updated;
+    },
     async updateMany({ where, data }: { where?: Where; data: Record<string, unknown> }) {
       const notifications = await listNotifications();
       const matched = notifications.filter((item) => matchesWhere(item as Record<string, unknown>, where));
@@ -793,6 +879,33 @@ export const db: any = {
         await replaceOne(collectionNames.notifications, { ...notification, ...data } as Notification);
       }
       return { count: matched.length };
+    }
+  },
+  supportThread: {
+    async findMany({ where, orderBy, take }: { where?: Where; orderBy?: OrderBy; take?: number }) {
+      return takeDocs(sortDocs((await listSupportThreads()).filter((item) => matchesWhere(item as Record<string, unknown>, where)), orderBy), take);
+    },
+    async findFirst({ where, orderBy }: { where?: Where; orderBy?: OrderBy }) {
+      const threads = takeDocs(sortDocs((await listSupportThreads()).filter((item) => matchesWhere(item as Record<string, unknown>, where)), orderBy), 1);
+      return threads[0] ?? null;
+    },
+    async create({ data }: { data: SupportThread }) {
+      return insertOne(collectionNames.supportThreads, data);
+    },
+    async update({ where, data }: { where: { id: string }; data: Partial<SupportThread> }) {
+      const threads = await listSupportThreads();
+      const current = threads.find((thread) => thread.id === where.id);
+      if (!current) {
+        throw new Error("Support thread not found");
+      }
+
+      const updated: SupportThread = {
+        ...current,
+        ...data,
+        updatedAt: now()
+      } as SupportThread;
+      await replaceOne(collectionNames.supportThreads, updated);
+      return updated;
     }
   },
   outreachTemplate: {
@@ -855,6 +968,13 @@ export const db: any = {
     }
   }
 };
+
+
+
+
+
+
+
 
 
 

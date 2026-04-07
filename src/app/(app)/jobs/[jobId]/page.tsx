@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { JobAssignmentManager } from "@/components/jobs/job-assignment-manager";
 import { JobPostGenerator } from "@/components/jobs/job-post-generator";
 import { JobStatusManager } from "@/components/jobs/job-status-manager";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,8 @@ type JobDetail = {
   status: string;
   sourceCampaign: string | null;
   rawDescription: string;
+  assignedRecruiterId?: string | null;
+  assignmentHistory?: Array<{ recruiterId: string; assignedAt: Date; withdrawnAt?: Date | null }>;
   mustHaveRequirements?: string[];
   niceToHaveRequirements?: string[];
   structuredData?: {
@@ -68,6 +71,11 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
     notFound();
   }
 
+  const recruiters = (await db.user.findMany({
+    where: { organizationId: session.organizationId, role: Role.RECRUITER, deletedAt: null },
+    select: { id: true, fullName: true, email: true }
+  })) as Array<{ id: string; fullName: string; email: string }>;
+
   const candidateIds = job.candidates.map((candidate) => candidate.id);
   const auditLogs = candidateIds.length
     ? (await db.auditLog.findMany({
@@ -81,14 +89,14 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
       })) as Array<{ entityId: string; userId?: string | null; createdAt: Date }>
     : [];
   const recruiterIds = Array.from(new Set(auditLogs.map((log) => log.userId).filter((value): value is string => Boolean(value))));
-  const recruiters = recruiterIds.length
+  const recruitersFromLogs = recruiterIds.length
     ? (await db.user.findMany({
         where: { id: { in: recruiterIds }, deletedAt: null },
         select: { id: true, fullName: true, email: true }
       })) as Array<{ id: string; fullName: string; email: string }>
     : [];
 
-  const recruiterDirectory = recruiters.reduce<RecruiterDirectory>((accumulator, user) => {
+  const recruiterDirectory = recruitersFromLogs.reduce<RecruiterDirectory>((accumulator, user) => {
     accumulator[user.id] = { fullName: user.fullName, email: user.email };
     return accumulator;
   }, {});
@@ -102,6 +110,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
   const structured = job.structuredData ?? {};
   const mustHaveRequirements = job.mustHaveRequirements?.length ? job.mustHaveRequirements : (structured.mustHaveRequirements ?? structured.qualifications ?? []);
   const niceToHaveRequirements = job.niceToHaveRequirements?.length ? job.niceToHaveRequirements : (structured.niceToHaveRequirements ?? structured.responsibilities ?? []);
+  const canManageJob = session.role === Role.ADMIN || session.role === Role.ORG_HEAD;
+  const assignedRecruiter = recruiters.find((recruiter) => recruiter.id === job.assignedRecruiterId) ?? null;
 
   return (
     <div className="profile-detail-shell stack-xl workspace-screen-shell">
@@ -109,7 +119,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
         scene="jobs"
         eyebrow="Role profile"
         title={job.title}
-        description={`Keep the brief, requirements, posting variants, and applicant activity for ${job.title} in one clean role view.`}
+        description={`Keep the brief, ownership, posting variants, and applicant activity for ${job.title} in one clean role view.`}
         stats={[
           { label: "Applicants", value: String(job.candidates.length) },
           { label: "Post variants", value: String(job.generatedAds.length) },
@@ -124,7 +134,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
             <div>
               <p className="eyebrow eyebrow-soft">Role profile</p>
               <h2 className="detail-title">{job.title}</h2>
-              <p className="detail-subtitle">{job.location || "Location pending"} | {job.headcount} hires | {job.sourceCampaign || "General campaign"}</p>
+              <p className="detail-subtitle">{job.location || "Location pending"} | {job.headcount} hires | {assignedRecruiter?.fullName || "No recruiter assigned yet"}</p>
             </div>
             <Badge>{job.status}</Badge>
           </div>
@@ -133,7 +143,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
           <div><small>Applicants</small><strong>{job.candidates.length}</strong></div>
           <div><small>Posts</small><strong>{job.generatedAds.length}</strong></div>
           <div><small>Mode</small><strong>{structured.workMode || "TBD"}</strong></div>
-          <div><small>Seniority</small><strong>{structured.seniority || "TBD"}</strong></div>
+          <div><small>Owner history</small><strong>{job.assignmentHistory?.length ?? 0}</strong></div>
         </div>
       </div>
 
@@ -169,15 +179,18 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
         </div>
 
         <aside className="stack-lg">
-          {session.role === Role.ADMIN || session.role === Role.ORG_HEAD ? (
+          {canManageJob ? (
             <Card>
-              <SectionHeading title="Job controls" description="Admins and org heads can control the role status without editing the brief." />
-              <JobStatusManager jobId={job.id} currentStatus={job.status} />
+              <SectionHeading title="Job controls" description="Org heads and admins can control status and recruiter ownership from here." />
+              <div className="stack-lg">
+                <JobStatusManager jobId={job.id} currentStatus={job.status} />
+                <JobAssignmentManager jobId={job.id} recruiters={recruiters.map((recruiter) => ({ id: recruiter.id, fullName: recruiter.fullName }))} currentAssignedRecruiterId={job.assignedRecruiterId ?? null} />
+              </div>
             </Card>
           ) : null}
 
           <Card>
-            <SectionHeading title="Role snapshot" description="Key structured fields recruiters check first." />
+            <SectionHeading title="Role snapshot" description="Key fields recruiters check first." />
             <div className="detail-definition-grid">
               <div><small>Sector</small><strong>{structured.sector || "Not set"}</strong></div>
               <div><small>Department</small><strong>{structured.department || "Not set"}</strong></div>
@@ -191,7 +204,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
           </Card>
 
           <Card>
-            <SectionHeading title="Applicants on this role" description="Track pipeline status, recruiter attribution, and application dates in one place." />
+            <SectionHeading title="Applicants on this role" description="Track pipeline status and recruiter attribution in one place." />
             <div className="applicant-list">
               {job.candidates.length ? job.candidates.map((candidate) => {
                 const recruiter = recruiterByCandidate[candidate.id];
@@ -215,7 +228,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
           </Card>
 
           <Card>
-            <SectionHeading title="Original brief" description="The raw description stays visible for recruiter review." />
+            <SectionHeading title="Original brief" description="The raw recruiter description stays visible for review." />
             <p className="prose-text">{job.rawDescription}</p>
           </Card>
         </aside>

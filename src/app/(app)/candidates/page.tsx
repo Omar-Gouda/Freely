@@ -8,9 +8,9 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { CandidateStage } from "@/lib/models";
+import { CandidateStage, Role } from "@/lib/models";
 
-type CandidateJob = { id: string; title: string };
+type CandidateJob = { id: string; title: string; organizationId?: string };
 
 type CandidateListItem = {
   id: string;
@@ -24,6 +24,7 @@ type CandidateListItem = {
   source: string;
   phone: string | null;
   createdAt: Date;
+  organizationId: string;
   job: CandidateJob;
 };
 
@@ -44,21 +45,31 @@ export default async function CandidatesPage({ searchParams }: CandidatesPagePro
   const selectedJobId = params.jobId ?? "";
   const selectedSource = params.source ?? "";
 
-  const [jobs, candidates] = (await Promise.all([
-    db.job.findMany({
-      where: { organizationId: session.organizationId, deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, title: true }
-    }),
-    db.candidate.findMany({
-      where: { organizationId: session.organizationId, deletedAt: null },
-      orderBy: [{ rankingScore: "desc" }, { createdAt: "desc" }],
-      take: 120,
-      include: { job: true }
-    })
-  ])) as unknown as [Array<{ id: string; title: string }>, CandidateListItem[]];
+  const jobs = (await db.job.findMany({
+    where: session.role === Role.ADMIN ? { deletedAt: null } : { organizationId: session.organizationId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, organizationId: true, assignedRecruiterId: true, assignmentHistory: true }
+  })) as Array<{ id: string; title: string; organizationId: string; assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }>;
 
-  const filteredCandidates = candidates.filter((candidate) => {
+  const visibleJobs = session.role === Role.RECRUITER
+    ? jobs.filter((job) => job.assignedRecruiterId === session.id || (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id))
+    : jobs;
+  const visibleJobIds = new Set(visibleJobs.map((job) => job.id));
+
+  const candidates = (await db.candidate.findMany({
+    where: session.role === Role.ADMIN
+      ? { deletedAt: null }
+      : { organizationId: session.organizationId, deletedAt: null },
+    orderBy: [{ rankingScore: "desc" }, { createdAt: "desc" }],
+    take: 120,
+    include: { job: true }
+  })) as unknown as CandidateListItem[];
+
+  const scopedCandidates = session.role === Role.RECRUITER
+    ? candidates.filter((candidate) => visibleJobIds.has(candidate.job.id))
+    : candidates;
+
+  const filteredCandidates = scopedCandidates.filter((candidate) => {
     const searchable = [
       candidate.firstName,
       candidate.lastName,
@@ -90,18 +101,18 @@ export default async function CandidatesPage({ searchParams }: CandidatesPagePro
     return true;
   });
 
-  const sourceOptions = Array.from(new Set(candidates.map((candidate) => candidate.source))).sort();
-  const scorecardReady = candidates.filter((candidate) => candidate.stage === CandidateStage.INTERVIEW_SCHEDULED || candidate.stage === CandidateStage.HIRED).length;
+  const sourceOptions = Array.from(new Set(scopedCandidates.map((candidate) => candidate.source))).sort();
+  const scorecardReady = scopedCandidates.filter((candidate) => candidate.stage === CandidateStage.INTERVIEW_SCHEDULED || candidate.stage === CandidateStage.HIRED).length;
 
   return (
     <div className="stack-xl workspace-screen-shell">
       <WorkspaceHero
         scene="candidates"
-        eyebrow="Talent intake"
-        title="Parse stronger candidate profiles and keep interview references attached to the person, not just the calendar."
-        description="Resume parsing now focuses on skills, education, and date-based experience, while the UI gives recruiters a cleaner place to review and update candidate records."
+        eyebrow="Candidate database"
+        title={session.role === Role.RECRUITER ? "Work inside the candidate list for the jobs you own." : "Keep resumes, notes, scorecards, and pipeline updates inside one candidate system."}
+        description={session.role === Role.RECRUITER ? "Your candidate workspace stays limited to assigned jobs so your daily recruiting flow is easier to manage." : "The candidate database is organized for faster review, cleaner interview follow-up, and simpler talent visibility across the organization."}
         stats={[
-          { label: "Candidates", value: String(candidates.length) },
+          { label: "Candidates", value: String(scopedCandidates.length) },
           { label: "Filtered view", value: String(filteredCandidates.length) },
           { label: "Interview-ready", value: String(scorecardReady) }
         ]}
@@ -115,7 +126,7 @@ export default async function CandidatesPage({ searchParams }: CandidatesPagePro
             <Input name="q" defaultValue={params.q ?? ""} placeholder="Search by candidate, role, source, or location" />
             <select name="jobId" className="input" defaultValue={selectedJobId}>
               <option value="">All roles</option>
-              {jobs.map((job) => (
+              {visibleJobs.map((job) => (
                 <option key={job.id} value={job.id}>{job.title}</option>
               ))}
             </select>
@@ -151,8 +162,8 @@ export default async function CandidatesPage({ searchParams }: CandidatesPagePro
           )}
         </div>
         <Card className="sticky-card workspace-side-card workspace-side-card-rich">
-          <SectionHeading title="Add candidate" description="Upload the CV first so the parser can prefill skills, education, and total experience." />
-          <CandidateForm jobs={jobs} />
+          <SectionHeading title="Add candidate" description="Recruiters can add candidates only to the jobs visible in their workspace." />
+          <CandidateForm jobs={visibleJobs.map((job) => ({ id: job.id, title: job.title }))} />
         </Card>
       </div>
     </div>

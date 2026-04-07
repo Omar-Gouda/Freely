@@ -31,6 +31,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const callbackError = searchParams.get("error") ?? "";
   const accountCreated = searchParams.get("created") === "1";
+  const requestSubmitted = searchParams.get("requested") === "1";
   const { pushToast } = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +44,11 @@ export default function LoginPage() {
     if (accountCreated) {
       pushToast({ title: "Account ready", description: "Your workspace account is ready. Sign in to continue.", tone: "success" });
     }
-  }, [accountCreated, callbackError, pushToast]);
+
+    if (requestSubmitted) {
+      pushToast({ title: "Request submitted", description: "Your organization request is waiting for admin approval.", tone: "info" });
+    }
+  }, [accountCreated, callbackError, pushToast, requestSubmitted]);
 
   async function handleSubmit(formData: FormData) {
     try {
@@ -73,28 +78,28 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-shell">
+    <div className="auth-shell auth-shell-production">
       <SiteHeader minimal />
-      <div className="auth-page auth-page-register">
-        <Card className="auth-card auth-hero auth-hero-register">
-          <span className="eyebrow">Recruiting workspace</span>
-          <h1>Sign in to manage jobs, candidates, outreach, and interviews from one purple command center.</h1>
-          <p>Freely keeps recruiter workflows connected so your team spends less time chasing updates and more time hiring.</p>
+      <div className="auth-page auth-page-register auth-page-production">
+        <Card className="auth-card auth-hero auth-hero-register auth-hero-production">
+          <span className="eyebrow">Recruitment workspace</span>
+          <h1>Sign in to manage jobs, candidates, interviews, and recruiter ownership from one calmer system.</h1>
+          <p>Freely keeps the hiring workflow structured for admins, org heads, and recruiters without crowding the screen.</p>
           <div className="auth-checklist">
-            <div className="auth-checklist-item"><strong>Track every job brief and extracted hiring detail in one place</strong></div>
-            <div className="auth-checklist-item"><strong>Coordinate recruiters through in-app alerts without losing ownership</strong></div>
-            <div className="auth-checklist-item"><strong>Keep support close with direct access to the contact page</strong></div>
+            <div className="auth-checklist-item"><strong>Role-based access for admin, org head, and recruiter teams</strong></div>
+            <div className="auth-checklist-item"><strong>Candidate records with resumes, notes, and interview evaluations</strong></div>
+            <div className="auth-checklist-item"><strong>Cleaner job ownership so recruiters stay focused on assigned work</strong></div>
           </div>
         </Card>
-        <Card className="auth-card auth-card-register">
+        <Card className="auth-card auth-card-register auth-card-production">
           <h2>Welcome back</h2>
           <form className="stack-md" action={handleSubmit}>
             <Input name="email" type="email" placeholder="Email" required />
             <Input name="password" type="password" placeholder="Password" required />
             <Button type="submit" disabled={loading}>{loading ? "Signing in..." : "Sign in"}</Button>
           </form>
-          <p className="muted">Need access? <Link href="/signup">Create your workspace account</Link></p>
-          <p className="muted">Need help or want to report an issue? <Link href="/contact">Contact us</Link></p>
+          <p className="muted">Need access? <Link href="/signup">Request a workspace</Link></p>
+          <p className="muted">Need help? <Link href="/contact">Contact support</Link></p>
         </Card>
       </div>
       <SiteFooter minimal />

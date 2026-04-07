@@ -9,8 +9,7 @@ import { Input, Textarea } from "@/components/ui/input";
 type ContactPayload = {
   error?: string;
   data?: {
-    requestId?: string;
-    channel?: string;
+    threadId?: string;
     warning?: string | null;
   };
 };
@@ -44,15 +43,13 @@ export function ContactForm() {
 
       formRef.current?.reset();
       pushToast({
-        title: "Message sent",
-        description: payload.data?.channel === "email-and-notification" || payload.data?.channel === "email"
-          ? "Your support request has been delivered successfully."
-          : "Your support request was saved inside Freely and shared with support.",
+        title: "Request received",
+        description: "Your message was added to the Freely support channel. Expect an email reply within 24 to 48 hours during Monday to Friday, 10 AM to 4 PM.",
         tone: "success"
       });
 
       if (payload.data?.warning) {
-        pushToast({ title: "Support delivery note", description: payload.data.warning, tone: "info" });
+        pushToast({ title: "Support note", description: payload.data.warning, tone: "info" });
       }
     } finally {
       setLoading(false);
@@ -80,10 +77,10 @@ export function ContactForm() {
         </label>
         <label className="field-shell field-shell-full">
           <span>Message</span>
-          <Textarea name="message" rows={6} placeholder="Tell us what you need help with, what broke, or how you want to use Freely." required />
+          <Textarea name="message" rows={6} placeholder="Tell us what you need help with, what broke, or which organization needs support." required />
         </label>
       </div>
-      <Button type="submit" disabled={loading}>{loading ? "Sending..." : "Send message"}</Button>
+      <Button type="submit" disabled={loading}>{loading ? "Sending..." : "Send request"}</Button>
     </form>
   );
 }

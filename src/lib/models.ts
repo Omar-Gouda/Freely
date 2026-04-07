@@ -11,6 +11,14 @@ export const AccountType = {
 } as const;
 export type AccountType = (typeof AccountType)[keyof typeof AccountType];
 
+export const OrganizationStatus = {
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+  ACTIVE: "ACTIVE",
+  SUSPENDED: "SUSPENDED",
+  CONTRACT_ENDED: "CONTRACT_ENDED"
+} as const;
+export type OrganizationStatus = (typeof OrganizationStatus)[keyof typeof OrganizationStatus];
+
 export const UserAccountStatus = {
   ACTIVE: "ACTIVE",
   DEACTIVATED: "DEACTIVATED"
@@ -72,6 +80,26 @@ export const NotificationKind = {
   SYSTEM: "SYSTEM"
 } as const;
 export type NotificationKind = (typeof NotificationKind)[keyof typeof NotificationKind];
+
+export const SupportThreadStatus = {
+  OPEN: "OPEN",
+  WAITING_ON_REQUESTER: "WAITING_ON_REQUESTER",
+  RESOLVED: "RESOLVED"
+} as const;
+export type SupportThreadStatus = (typeof SupportThreadStatus)[keyof typeof SupportThreadStatus];
+
+export const SupportThreadSource = {
+  IN_APP: "IN_APP",
+  PUBLIC_CONTACT: "PUBLIC_CONTACT"
+} as const;
+export type SupportThreadSource = (typeof SupportThreadSource)[keyof typeof SupportThreadSource];
+
+export const SupportMessageAuthorType = {
+  ADMIN: "ADMIN",
+  MEMBER: "MEMBER",
+  EXTERNAL: "EXTERNAL"
+} as const;
+export type SupportMessageAuthorType = (typeof SupportMessageAuthorType)[keyof typeof SupportMessageAuthorType];
 
 export type CandidateFileRecord = {
   id: string;
@@ -135,10 +163,26 @@ export type GeneratedJobAdRecord = {
   updatedAt: Date;
 };
 
+export type JobAssignmentRecord = {
+  id: string;
+  recruiterId: string;
+  assignedById: string;
+  assignedAt: Date;
+  withdrawnAt?: Date | null;
+};
+
 export type Organization = {
   id: string;
   name: string;
   slug: string;
+  status: OrganizationStatus;
+  requestedByEmail?: string | null;
+  approvedAt?: Date | null;
+  approvedById?: string | null;
+  approvalNotes?: string | null;
+  deactivatedAt?: Date | null;
+  contractEndsAt?: Date | null;
+  deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -177,6 +221,8 @@ export type Job = {
   id: string;
   organizationId: string;
   createdById: string;
+  assignedRecruiterId?: string | null;
+  assignmentHistory: JobAssignmentRecord[];
   title: string;
   rawDescription: string;
   structuredData?: Record<string, unknown> | null;
@@ -280,6 +326,35 @@ export type Notification = {
   createdAt: Date;
 };
 
+export type SupportMessage = {
+  id: string;
+  authorType: SupportMessageAuthorType;
+  authorUserId?: string | null;
+  authorName: string;
+  authorEmail?: string | null;
+  body: string;
+  createdAt: Date;
+  deliveredByEmail?: boolean | null;
+};
+
+export type SupportThread = {
+  id: string;
+  organizationId: string;
+  requesterUserId?: string | null;
+  requesterName: string;
+  requesterEmail: string;
+  requesterCompany?: string | null;
+  subject: string;
+  status: SupportThreadStatus;
+  source: SupportThreadSource;
+  assignedAdminUserId?: string | null;
+  lastMessageAt: Date;
+  resolvedAt?: Date | null;
+  messages: SupportMessage[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type AuditLog = {
   id: string;
   organizationId: string;
@@ -304,3 +379,4 @@ export type QueueJob = {
   createdAt: Date;
   updatedAt: Date;
 };
+

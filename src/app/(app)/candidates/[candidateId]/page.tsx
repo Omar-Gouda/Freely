@@ -8,10 +8,12 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Role } from "@/lib/models";
 import { formatScore } from "@/lib/utils";
 
 type CandidateDetail = {
   id: string;
+  jobId: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -69,6 +71,17 @@ export default async function CandidateProfilePage({ params }: { params: Promise
 
   if (!candidate) {
     notFound();
+  }
+
+  if (session.role === Role.RECRUITER) {
+    const visibleJobs = (await db.job.findMany({
+      where: { organizationId: session.organizationId, deletedAt: null },
+      select: { id: true, assignedRecruiterId: true, assignmentHistory: true }
+    })) as Array<{ id: string; assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }>;
+    const canView = visibleJobs.some((job) => job.id === candidate.jobId && (job.assignedRecruiterId === session.id || (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id)));
+    if (!canView) {
+      notFound();
+    }
   }
 
   const timeline = [...(candidate.stageEvents ?? [])].sort((left, right) => +new Date(right.createdAt) - +new Date(left.createdAt));

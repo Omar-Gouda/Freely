@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 
+import { getUniqueOrganizationSlug } from "@/lib/auth";
 import { getSupabaseAdminConfigStatus } from "@/lib/config-status";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { fail } from "@/lib/http";
 import { log } from "@/lib/logger";
+import { OrganizationStatus, Role, UserAccountStatus } from "@/lib/models";
 import { signupSchema } from "@/lib/validators";
 import { createSupabaseAdminClient } from "@/utils/supabase/admin";
 import { createRouteHandlerClient } from "@/utils/supabase/route";
@@ -43,10 +45,45 @@ export async function POST(request: NextRequest) {
 
     const fullName = payload.data.fullName.trim();
     const workspaceName = payload.data.workspaceName.trim();
+    const slug = await getUniqueOrganizationSlug(workspaceName);
     const userMetadata = {
       full_name: fullName,
       workspace_name: workspaceName,
       account_type: payload.data.accountType
+    };
+
+    const createPendingWorkspace = async (supabaseAuthId: string) => {
+      const organization = await db.organization.create({
+        data: {
+          name: workspaceName,
+          slug,
+          status: OrganizationStatus.PENDING_APPROVAL,
+          requestedByEmail: normalizedEmail,
+          approvedAt: null,
+          approvedById: null,
+          approvalNotes: null,
+          deactivatedAt: null,
+          contractEndsAt: null,
+          deletedAt: null
+        }
+      });
+
+      const user = await db.user.create({
+        data: {
+          organizationId: organization.id,
+          supabaseAuthId,
+          email: normalizedEmail,
+          passwordHash: "",
+          fullName,
+          role: Role.ORG_HEAD,
+          accountStatus: UserAccountStatus.ACTIVE,
+          deactivatedAt: null,
+          scheduledDeletionAt: null,
+          onboardingCompleted: false
+        }
+      });
+
+      return { organization, user };
     };
 
     const { supabase, json } = createRouteHandlerClient(request);
@@ -65,18 +102,18 @@ export async function POST(request: NextRequest) {
         return json({ error: error?.message ?? "Unable to create your account right now." }, { status: 400 });
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password: payload.data.password
-      });
+      try {
+        await createPendingWorkspace(data.user.id);
+      } catch (creationError) {
+        await adminClient.auth.admin.deleteUser(data.user.id);
+        throw creationError;
+      }
 
       return json({
         data: {
           needsEmailConfirmation: false,
-          redirectTo: signInError ? "/login?created=1" : "/dashboard",
-          message: signInError
-            ? "Your account is ready. Sign in to open your workspace."
-            : "Your workspace is ready. We are signing you in now."
+          redirectTo: "/login?requested=1",
+          message: "Your organization request has been submitted and is awaiting admin approval."
         }
       });
     }
@@ -95,12 +132,14 @@ export async function POST(request: NextRequest) {
       return json({ error: error?.message ?? "Unable to create your account right now." }, { status: 400 });
     }
 
+    await createPendingWorkspace(data.user.id);
+
     return json({
       data: {
         needsEmailConfirmation: !data.session,
         message: data.session
-          ? "Your workspace is ready. You can continue into the app."
-          : "Your account was created. Follow the confirmation email from your auth provider, then sign in to finish opening the workspace."
+          ? "Your request is pending admin approval. You will be able to sign in after approval."
+          : "Confirm your email first, then wait for admin approval before signing in."
       }
     });
   } catch (error) {

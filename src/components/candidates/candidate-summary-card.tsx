@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { MapPin, Phone, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +51,7 @@ export function CandidateSummaryCard({ candidate }: CandidateSummaryCardProps) {
           <strong>{formatScore(candidate.overallScore)}</strong>
         </div>
         <div>
-          <small>Applied</small>
+          <small>Added</small>
           <strong>{new Date(candidate.createdAt).toLocaleDateString()}</strong>
         </div>
       </div>

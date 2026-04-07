@@ -6,6 +6,7 @@ import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { getAnalyticsOverview } from "@/lib/analytics";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Role } from "@/lib/models";
 
 function formatAction(action: string) {
   return action.replaceAll(".", " ").replaceAll("_", " ");
@@ -18,12 +19,15 @@ type AnalyticsPageProps = {
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const session = await requireSession();
   const params = (searchParams ? await searchParams : {}) ?? {};
-  const jobs = (await db.job.findMany({
+  const allJobs = (await db.job.findMany({
     where: { organizationId: session.organizationId, deletedAt: null },
     orderBy: { createdAt: "desc" },
-    select: { id: true, title: true }
-  })) as Array<{ id: string; title: string }>;
-  const selectedJobId = params.jobId ?? "";
+    select: { id: true, title: true, assignedRecruiterId: true, assignmentHistory: true }
+  })) as Array<{ id: string; title: string; assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }>;
+  const jobs = session.role === Role.RECRUITER
+    ? allJobs.filter((job) => job.assignedRecruiterId === session.id || (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id))
+    : allJobs;
+  const selectedJobId = params.jobId ?? (session.role === Role.RECRUITER ? jobs[0]?.id ?? "" : "");
   const analytics = await getAnalyticsOverview(session.organizationId, selectedJobId || undefined);
 
   return (
@@ -31,8 +35,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       <WorkspaceHero
         scene="analytics"
         eyebrow="Hiring insights"
-        title="Track funnel movement and source quality from a calmer analytics surface."
-        description="The analytics view now pairs cleaner filters with lighter cards so hiring teams can spot momentum without wading through noise."
+        title="Track funnel movement, source quality, and recruiter delivery from a cleaner analytics view."
+        description="The analytics workspace keeps the signal high so leaders and recruiters can review hiring momentum without noise." 
         stats={[
           { label: "Jobs in scope", value: String(analytics.totals.jobs) },
           { label: "Candidates", value: String(analytics.totals.candidates) },
@@ -43,7 +47,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       <Card className="filter-bar filter-bar-rich">
         <form method="GET" className="filter-bar-inline">
           <select name="jobId" className="input" defaultValue={selectedJobId}>
-            <option value="">All jobs</option>
+            <option value="">All visible jobs</option>
             {jobs.map((job) => (
               <option key={job.id} value={job.id}>{job.title}</option>
             ))}
@@ -54,13 +58,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </form>
         <div className="filter-summary">
-          <strong>{analytics.selectedJob?.title ?? "All jobs"}</strong>
+          <strong>{analytics.selectedJob?.title ?? "All visible jobs"}</strong>
           <span>{analytics.totals.candidates} candidate records in scope</span>
         </div>
       </Card>
 
       <div className="stats-grid">
-        <Card><strong>{analytics.totals.jobs}</strong><span>{selectedJobId ? "Jobs in scope" : "Total jobs"}</span></Card>
+        <Card><strong>{analytics.totals.jobs}</strong><span>{selectedJobId ? "Jobs in scope" : "Visible jobs"}</span></Card>
         <Card><strong>{analytics.totals.candidates}</strong><span>Total candidates</span></Card>
         <Card><strong>{analytics.avgTimeToHireDays} days</strong><span>Avg time to hire</span></Card>
         <Card><strong>{analytics.conversionRates.qualifiedToHired}%</strong><span>Qualified to hired</span></Card>
@@ -77,7 +81,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
       </div>
       <div className="two-column-grid">
         <Card>
-          <SectionHeading title="Quality distribution" description="Candidate quality now uses a 10-point fit score." />
+          <SectionHeading title="Quality distribution" description="Candidate quality uses a 10-point fit score." />
           <div className="stats-inline">
             <span>Excellent {analytics.qualityBands.excellent}</span>
             <span>Strong {analytics.qualityBands.strong}</span>
@@ -86,7 +90,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
         </Card>
         <Card>
-          <SectionHeading title="Recent activity" description="Quick visibility into what changed for this job and its candidates." />
+          <SectionHeading title="Recent activity" description="Quick visibility into what changed for the selected scope." />
           <div className="timeline-list">
             {analytics.recentActivity.length ? analytics.recentActivity.map((item: { id: string; action: string; entityType: string; createdAt: Date }) => (
               <div key={item.id} className="timeline-item">
@@ -101,3 +105,4 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
     </div>
   );
 }
+

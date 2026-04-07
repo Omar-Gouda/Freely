@@ -5,12 +5,23 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { Role } from "@/lib/models";
 
-type OutreachCandidate = { id: string; firstName: string; lastName: string; phone: string | null; job: { title: string } };
+type OutreachCandidate = { id: string; firstName: string; lastName: string; phone: string | null; job: { id: string; title: string } };
 type OutreachTemplate = { id: string; kind: string; content: string; candidate: { firstName: string; lastName: string; phone: string | null } | null };
 
 export default async function OutreachPage() {
   const session = await requireSession();
+  const jobs = (await db.job.findMany({
+    where: { organizationId: session.organizationId, deletedAt: null },
+    select: { id: true, assignedRecruiterId: true, assignmentHistory: true }
+  })) as Array<{ id: string; assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }>;
+  const visibleJobIds = new Set(
+    session.role === Role.RECRUITER
+      ? jobs.filter((job) => job.assignedRecruiterId === session.id || (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id)).map((job) => job.id)
+      : jobs.map((job) => job.id)
+  );
+
   const [candidates, templates] = (await Promise.all([
     db.candidate.findMany({
       where: { organizationId: session.organizationId, deletedAt: null },
@@ -26,17 +37,19 @@ export default async function OutreachPage() {
     })
   ])) as unknown as [OutreachCandidate[], OutreachTemplate[]];
 
+  const scopedCandidates = session.role === Role.RECRUITER ? candidates.filter((candidate) => visibleJobIds.has(candidate.job.id)) : candidates;
+
   return (
     <div className="stack-xl workspace-screen-shell">
       <WorkspaceHero
         scene="outreach"
         eyebrow="Recruiter messaging"
-        title="Generate faster outreach without losing the candidate and role context behind each message."
-        description="The refreshed outreach space keeps templates, message generation, and recruiter actions visually simpler so teams can move faster with less clutter."
+        title="Generate outreach that stays connected to the candidate and the role." 
+        description="Saved templates and candidate context stay together so recruiters can move faster without rewriting the same message chain." 
         stats={[
-          { label: "Candidates in reach", value: String(candidates.length) },
+          { label: "Candidates in reach", value: String(scopedCandidates.length) },
           { label: "Saved templates", value: String(templates.length) },
-          { label: "Active page", value: "WhatsApp" }
+          { label: "Primary channel", value: "WhatsApp" }
         ]}
       />
 
@@ -45,7 +58,7 @@ export default async function OutreachPage() {
           <Card>
             <SectionHeading title="WhatsApp outreach" description="Generate recruiter-ready messages and reuse saved drafts when needed." />
             <OutreachGenerator
-              candidates={candidates.map((candidate) => ({
+              candidates={scopedCandidates.map((candidate) => ({
                 id: candidate.id,
                 name: `${candidate.firstName} ${candidate.lastName}`,
                 phone: candidate.phone,
