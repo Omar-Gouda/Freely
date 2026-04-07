@@ -14,10 +14,37 @@ const jobAssignmentSchema = z.object({
   status: z.string().optional()
 });
 
+async function getVisibleJobIds(session: { organizationId: string; role: Role; id: string }) {
+  const jobs = await db.job.findMany({
+    where: {
+      organizationId: session.organizationId,
+      deletedAt: null
+    }
+  });
+
+  if (session.role !== Role.RECRUITER) {
+    return jobs.map((job: { id: string }) => job.id);
+  }
+
+  return jobs
+    .filter((job: { assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }) => (
+      job.assignedRecruiterId === session.id ||
+      (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id)
+    ))
+    .map((job: { id: string }) => job.id);
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const auth = await requireApiSession(request);
   if ("error" in auth) return auth.error;
   const { jobId } = await params;
+
+  if (auth.session.role === Role.RECRUITER) {
+    const visibleJobIds = await getVisibleJobIds(auth.session);
+    if (!visibleJobIds.includes(jobId)) {
+      return fail("Job not found", 404);
+    }
+  }
 
   const job = await db.job.findFirst({
     where: { id: jobId, organizationId: auth.session.organizationId },
@@ -28,7 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
-  const auth = await requireApiSession(request);
+  const auth = await requireApiSession(request, [Role.ADMIN, Role.ORG_HEAD]);
   if ("error" in auth) return auth.error;
   const { jobId } = await params;
 
@@ -54,17 +81,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     Object.assign(nextData, payload.data);
   }
 
-  if ((payload.success && payload.data.status) || (assignmentPayload.success && assignmentPayload.data.status)) {
-    if (auth.session.role !== Role.ADMIN && auth.session.role !== Role.ORG_HEAD) {
-      return fail("Only admins or org heads can update job status", 403);
-    }
-  }
-
   if (assignmentPayload.success && "assignedRecruiterId" in assignmentPayload.data) {
-    if (auth.session.role !== Role.ADMIN && auth.session.role !== Role.ORG_HEAD) {
-      return fail("Only admins or org heads can assign jobs to recruiters.", 403);
-    }
-
     const nextRecruiterId = assignmentPayload.data.assignedRecruiterId?.trim() || null;
     const timestamp = new Date();
     let assignmentHistory = Array.isArray(job.assignmentHistory) ? [...job.assignmentHistory] : [];

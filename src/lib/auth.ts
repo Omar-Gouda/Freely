@@ -1,9 +1,11 @@
 import { randomUUID } from "crypto";
 
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { OrganizationStatus, Role, UserAccountStatus, type User } from "@/lib/models";
 import { createClient } from "@/utils/supabase/server";
 
@@ -23,6 +25,15 @@ type SupabaseUser = {
   email?: string | null;
   user_metadata?: Record<string, unknown> | null;
 };
+
+const tokenSupabaseClient = env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+  ? createSupabaseClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : null;
 
 async function getSupabase(): Promise<ReturnType<typeof createClient>> {
   const cookieStore = await cookies();
@@ -139,21 +150,8 @@ export async function syncApprovedLocalUser(supabaseUser: SupabaseUser): Promise
   return syncLocalUser(dbUser, supabaseUser);
 }
 
-export async function getSession(): Promise<Session | null> {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY) {
-    return null;
-  }
-
-  const supabase = await getSupabase();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return null;
-  }
-
-  const syncedUser = await syncApprovedLocalUser(user);
+async function buildSessionFromSupabaseUser(supabaseUser: SupabaseUser): Promise<Session | null> {
+  const syncedUser = await syncApprovedLocalUser(supabaseUser);
   if (!syncedUser || syncedUser.deletedAt || syncedUser.accountStatus === UserAccountStatus.DEACTIVATED) {
     return null;
   }
@@ -179,6 +177,36 @@ export async function getSession(): Promise<Session | null> {
     avatarUrl: syncedUser.avatarUrl,
     onboardingCompleted: syncedUser.onboardingCompleted ?? false
   };
+}
+
+export async function getSession(): Promise<Session | null> {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY) {
+    return null;
+  }
+
+  const supabase = await getSupabase();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  return buildSessionFromSupabaseUser(user);
+}
+
+export async function getSessionFromAccessToken(accessToken: string): Promise<Session | null> {
+  if (!tokenSupabaseClient || !accessToken.trim()) {
+    return null;
+  }
+
+  const { data, error } = await tokenSupabaseClient.auth.getUser(accessToken.trim());
+  if (error || !data.user) {
+    return null;
+  }
+
+  return buildSessionFromSupabaseUser(data.user);
 }
 
 export async function requireSession(allowedRoles?: Role[]): Promise<Session> {

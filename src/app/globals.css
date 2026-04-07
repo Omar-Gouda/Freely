@@ -4004,6 +4004,7 @@ select,
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  padding: 10px;
   gap: 0.85rem;
 }
 
@@ -4018,6 +4019,7 @@ select,
 .support-compose-card,
 .support-reply-card {
   padding: 0.95rem 1rem;
+  gap: 10px;
   border-radius: 18px;
   background: rgba(248, 252, 251, 0.9);
   border: 1px solid rgba(15, 118, 110, 0.08);

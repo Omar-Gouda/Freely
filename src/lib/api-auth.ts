@@ -1,11 +1,21 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 
-import { Role } from "@/lib/models";
-import { getSession } from "@/lib/auth";
+import { getSession, getSessionFromAccessToken } from "@/lib/auth";
 import { fail } from "@/lib/http";
+import { Role } from "@/lib/models";
 
-export async function requireApiSession(_request: NextRequest, allowedRoles?: Role[]) {
-  const session = await getSession();
+function getBearerToken(request: NextRequest) {
+  const authorization = request.headers.get("authorization")?.trim();
+  if (!authorization?.toLowerCase().startsWith("bearer ")) {
+    return null;
+  }
+
+  return authorization.slice(7).trim() || null;
+}
+
+export async function requireApiSession(request: NextRequest, allowedRoles?: Role[]) {
+  const accessToken = getBearerToken(request);
+  const session = accessToken ? await getSessionFromAccessToken(accessToken) : await getSession();
 
   if (!session) {
     return { error: fail("Unauthorized", 401) } as const;

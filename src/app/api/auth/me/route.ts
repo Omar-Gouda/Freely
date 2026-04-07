@@ -1,7 +1,11 @@
-﻿import { getSession } from "@/lib/auth";
-import { fail, ok } from "@/lib/http";
+import { NextRequest } from "next/server";
 
-export async function GET() {
-  const session = await getSession();
-  return session ? ok(session) : fail("Unauthorized", 401);
+import { requireApiSession } from "@/lib/api-auth";
+import { ok } from "@/lib/http";
+
+export async function GET(request: NextRequest) {
+  const auth = await requireApiSession(request);
+  if ("error" in auth) return auth.error;
+
+  return ok(auth.session);
 }

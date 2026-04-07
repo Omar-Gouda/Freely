@@ -8,7 +8,7 @@ import { requireApiSession } from "@/lib/api-auth";
 import { createAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
-import { InterviewBookingStatus, InterviewStatus, NotificationKind } from "@/lib/models";
+import { InterviewBookingStatus, InterviewStatus, NotificationKind, Role } from "@/lib/models";
 import { createNotification } from "@/lib/notifications";
 import { interviewBookingSchema, interviewEvaluationSchema, interviewSlotSchema, interviewUpdateSchema } from "@/lib/validators";
 
@@ -29,6 +29,26 @@ async function getAssignedRecruiter(organizationId: string, assignedRecruiterId?
       fullName: true
     }
   }) as Promise<{ id: string; email: string; fullName: string } | null>;
+}
+
+async function getVisibleJobIds(session: { organizationId: string; role: Role; id: string }) {
+  const jobs = await db.job.findMany({
+    where: {
+      organizationId: session.organizationId,
+      deletedAt: null
+    }
+  });
+
+  if (session.role !== Role.RECRUITER) {
+    return jobs.map((job: { id: string }) => job.id);
+  }
+
+  return jobs
+    .filter((job: { assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }) => (
+      job.assignedRecruiterId === session.id ||
+      (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id)
+    ))
+    .map((job: { id: string }) => job.id);
 }
 
 function formatScheduleLabel(startsAt: Date, endsAt: Date) {
@@ -73,8 +93,12 @@ export async function GET(request: NextRequest) {
   const auth = await requireApiSession(request);
   if ("error" in auth) return auth.error;
 
+  const visibleJobIds = await getVisibleJobIds(auth.session);
   const slots = await db.interviewSlot.findMany({
-    where: { organizationId: auth.session.organizationId },
+    where: {
+      organizationId: auth.session.organizationId,
+      ...(auth.session.role === Role.RECRUITER ? { jobId: { in: visibleJobIds } } : {})
+    },
     orderBy: { startsAt: "asc" },
     include: { job: true, booking: { include: { candidate: true } } }
   });
@@ -87,6 +111,7 @@ export async function POST(request: NextRequest) {
   if ("error" in auth) return auth.error;
 
   const body = await request.json();
+  const visibleJobIds = await getVisibleJobIds(auth.session);
 
   if (body.candidateId) {
     const payload = interviewBookingSchema.safeParse(body);
@@ -105,6 +130,10 @@ export async function POST(request: NextRequest) {
 
     if (!slot) {
       return fail("Slot is not available", 409);
+    }
+
+    if (auth.session.role === Role.RECRUITER && !visibleJobIds.includes(slot.jobId)) {
+      return fail("Recruiters can only book interviews for jobs assigned to them.", 403);
     }
 
     const candidate = await db.candidate.findFirst({
@@ -177,6 +206,10 @@ export async function POST(request: NextRequest) {
     return fail("Invalid slot payload", 400, payload.error.flatten());
   }
 
+  if (auth.session.role === Role.RECRUITER && !visibleJobIds.includes(payload.data.jobId)) {
+    return fail("Recruiters can only schedule interviews for jobs assigned to them.", 403);
+  }
+
   const startsAt = new Date(payload.data.startsAt);
   const endsAt = new Date(payload.data.endsAt);
 
@@ -244,6 +277,11 @@ export async function PATCH(request: NextRequest) {
 
   if (!slot) {
     return fail("Interview slot not found", 404);
+  }
+
+  const visibleJobIds = await getVisibleJobIds(auth.session);
+  if (auth.session.role === Role.RECRUITER && !visibleJobIds.includes(slot.jobId)) {
+    return fail("Recruiters can only update interviews on jobs assigned to them.", 403);
   }
 
   if (payload.data.interviewEvaluation && !slot.booking) {

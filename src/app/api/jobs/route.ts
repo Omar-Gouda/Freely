@@ -29,12 +29,38 @@ function buildManualSkills(payload: { mustHaveRequirements: string[]; niceToHave
     .slice(0, 10);
 }
 
+async function getVisibleJobIds(session: { organizationId: string; role: Role; id: string }) {
+  const jobs = await db.job.findMany({
+    where: {
+      organizationId: session.organizationId,
+      deletedAt: null
+    },
+    orderBy: { createdAt: "desc" }
+  });
+
+  if (session.role !== Role.RECRUITER) {
+    return jobs.map((job: { id: string }) => job.id);
+  }
+
+  return jobs
+    .filter((job: { assignedRecruiterId?: string | null; assignmentHistory?: Array<{ recruiterId: string }> }) => (
+      job.assignedRecruiterId === session.id ||
+      (job.assignmentHistory ?? []).some((entry) => entry.recruiterId === session.id)
+    ))
+    .map((job: { id: string }) => job.id);
+}
+
 export async function GET(request: NextRequest) {
   const auth = await requireApiSession(request);
   if ("error" in auth) return auth.error;
 
+  const visibleJobIds = await getVisibleJobIds(auth.session);
   const jobs = await db.job.findMany({
-    where: { organizationId: auth.session.organizationId, deletedAt: null },
+    where: {
+      organizationId: auth.session.organizationId,
+      deletedAt: null,
+      ...(auth.session.role === Role.RECRUITER ? { id: { in: visibleJobIds } } : {})
+    },
     orderBy: { createdAt: "desc" },
     include: { generatedAds: true, _count: { select: { candidates: true } } }
   });

@@ -48,6 +48,30 @@ function canManageTargetUser(actor: { role: Role; organizationId: string; id: st
   return actor.role === Role.ORG_HEAD && targetUser.organizationId === actor.organizationId && targetUser.role === Role.RECRUITER && targetUser.id !== actor.id;
 }
 
+export async function GET(request: NextRequest) {
+  const auth = await requireApiSession(request, [Role.ADMIN, Role.ORG_HEAD]);
+  if ("error" in auth) return auth.error;
+
+  const users = await db.user.findMany({
+    where: auth.session.role === Role.ADMIN
+      ? { deletedAt: null }
+      : { organizationId: auth.session.organizationId, deletedAt: null },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      role: true,
+      organizationId: true,
+      accountStatus: true,
+      deactivatedAt: true,
+      scheduledDeletionAt: true
+    }
+  });
+
+  return ok(users);
+}
+
 export async function POST(request: NextRequest) {
   const auth = await requireApiSession(request, [Role.ADMIN, Role.ORG_HEAD]);
   if ("error" in auth) return auth.error;
