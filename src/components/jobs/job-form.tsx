@@ -18,7 +18,7 @@ function splitRequirements(value: string) {
   return value
     .split(/\r?\n/)
     .flatMap((item) => item.split(/[;|]/))
-    .map((item) => item.replace(/^[-•*\s]+/, "").trim())
+    .map((item) => item.replace(/^[-\u2022*\s]+/, "").trim())
     .filter(Boolean);
 }
 

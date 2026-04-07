@@ -106,7 +106,7 @@ function normalizeWhitespace(value: string) {
 }
 
 function cleanLine(value: string) {
-  return normalizeWhitespace(value.replace(/[|•·]/g, " ").replace(/\s{2,}/g, " "));
+  return normalizeWhitespace(value.replace(/[|\u2022\u00B7]/g, " ").replace(/\s{2,}/g, " "));
 }
 
 function lineLooksLikeHeading(value: string) {
@@ -174,7 +174,7 @@ function extractContact(text: string) {
 
 function normalizeSkillToken(value: string) {
   return value
-    .replace(/^[-•*]+/, "")
+    .replace(/^[-\u2022*]+/, "")
     .replace(/[()]/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
@@ -245,7 +245,7 @@ function parseMonthYear(token: string) {
 
 function extractExperienceIntervals(text: string) {
   const intervals: Interval[] = [];
-  const pattern = /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{4}|\d{1,2}\/\d{4}|\d{4})\s*(?:-|–|—|to)\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{4}|\d{1,2}\/\d{4}|\d{4}|present|current|now)/gi;
+  const pattern = /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{4}|\d{1,2}\/\d{4}|\d{4})\s*(?:-|\u2013|\u2014|to)\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\s+\d{4}|\d{1,2}\/\d{4}|\d{4}|present|current|now)/gi;
 
   for (const match of text.matchAll(pattern)) {
     const start = parseMonthYear(match[1]);
