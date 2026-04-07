@@ -7,12 +7,30 @@ import { useMemo, useState } from "react";
 
 import { useToast } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 
 type RecruiterOption = {
   id: string;
   fullName: string;
 };
+
+type RequirementCheck = {
+  label: string;
+  checked: boolean;
+  notes?: string | null;
+};
+
+type InterviewEvaluation = {
+  mustHaveChecks?: RequirementCheck[];
+  niceToHaveChecks?: RequirementCheck[];
+  communicationRating?: number | null;
+  languageRating?: number | null;
+  notes?: string | null;
+  educationNotes?: string | null;
+  workExperienceNotes?: string | null;
+  age?: string | null;
+  nationalIdNumber?: string | null;
+} | null;
 
 type Slot = {
   id: string;
@@ -29,16 +47,175 @@ type Slot = {
   notesFromBooking: string | null;
   assignedRecruiterId: string | null;
   assignedRecruiterName: string | null;
+  mustHaveRequirements: string[];
+  niceToHaveRequirements: string[];
+  interviewEvaluation: InterviewEvaluation;
 };
 
 function formatStatus(value: string | null) {
   return (value ?? "UNASSIGNED").replaceAll("_", " ");
 }
 
+function buildChecklist(requirements: string[], existing?: RequirementCheck[]) {
+  const existingLookup = new Map((existing ?? []).map((item) => [item.label, item]));
+  const ordered = requirements.map((label) => {
+    const previous = existingLookup.get(label);
+    return {
+      label,
+      checked: previous?.checked ?? false,
+      notes: previous?.notes ?? ""
+    };
+  });
+  const extras = (existing ?? []).filter((item) => !requirements.includes(item.label));
+  return [...ordered, ...extras];
+}
+
+function RequirementChecklistEditor({
+  title,
+  items,
+  onChange,
+  emptyLabel
+}: {
+  title: string;
+  items: RequirementCheck[];
+  onChange: (items: RequirementCheck[]) => void;
+  emptyLabel: string;
+}) {
+  if (!items.length) {
+    return (
+      <div className="interview-scorecard-group">
+        <strong>{title}</strong>
+        <p className="muted">{emptyLabel}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="interview-scorecard-group">
+      <strong>{title}</strong>
+      <div className="interview-checklist-stack">
+        {items.map((item, index) => (
+          <div key={`${title}-${item.label}-${index}`} className="interview-checklist-item">
+            <label className="interview-checklist-toggle">
+              <input
+                type="checkbox"
+                checked={item.checked}
+                onChange={(event) => {
+                  const next = [...items];
+                  next[index] = { ...item, checked: event.target.checked };
+                  onChange(next);
+                }}
+              />
+              <span>{item.label}</span>
+            </label>
+            <Input
+              value={item.notes ?? ""}
+              onChange={(event) => {
+                const next = [...items];
+                next[index] = { ...item, notes: event.target.value };
+                onChange(next);
+              }}
+              placeholder="Optional interviewer note"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function InterviewScorecardModal({ slot, onClose, onSaved }: { slot: Slot; onClose: () => void; onSaved: () => void }) {
+  const { pushToast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [mustHaveChecks, setMustHaveChecks] = useState<RequirementCheck[]>(() => buildChecklist(slot.mustHaveRequirements, slot.interviewEvaluation?.mustHaveChecks));
+  const [niceToHaveChecks, setNiceToHaveChecks] = useState<RequirementCheck[]>(() => buildChecklist(slot.niceToHaveRequirements, slot.interviewEvaluation?.niceToHaveChecks));
+  const [communicationRating, setCommunicationRating] = useState(slot.interviewEvaluation?.communicationRating?.toString() ?? "");
+  const [languageRating, setLanguageRating] = useState(slot.interviewEvaluation?.languageRating?.toString() ?? "");
+  const [notes, setNotes] = useState(slot.interviewEvaluation?.notes ?? "");
+  const [educationNotes, setEducationNotes] = useState(slot.interviewEvaluation?.educationNotes ?? "");
+  const [workExperienceNotes, setWorkExperienceNotes] = useState(slot.interviewEvaluation?.workExperienceNotes ?? "");
+  const [age, setAge] = useState(slot.interviewEvaluation?.age ?? "");
+  const [nationalIdNumber, setNationalIdNumber] = useState(slot.interviewEvaluation?.nationalIdNumber ?? "");
+
+  async function saveScorecard() {
+    setSaving(true);
+    const response = await fetch("/api/interviews", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slotId: slot.id,
+        interviewEvaluation: {
+          mustHaveChecks,
+          niceToHaveChecks,
+          communicationRating: communicationRating ? Number(communicationRating) : null,
+          languageRating: languageRating ? Number(languageRating) : null,
+          notes,
+          educationNotes,
+          workExperienceNotes,
+          age,
+          nationalIdNumber
+        }
+      })
+    });
+
+    const payload = await response.json().catch(() => ({ error: "Interview scorecard save failed" }));
+    if (!response.ok) {
+      pushToast({ title: "Scorecard save failed", description: payload.error ?? "Please try again.", tone: "error" });
+      setSaving(false);
+      return;
+    }
+
+    pushToast({ title: "Scorecard saved", description: "The interview evaluation is now recorded on this slot.", tone: "success" });
+    setSaving(false);
+    onSaved();
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-card interview-scorecard-modal">
+        <div className="list-row list-row-start">
+          <div>
+            <strong>Interview scorecard</strong>
+            <p className="muted">{slot.candidateName} - {slot.jobTitle}</p>
+          </div>
+          <Button type="button" variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+
+        <div className="interview-scorecard-layout">
+          <RequirementChecklistEditor title="Must-have requirements" items={mustHaveChecks} onChange={setMustHaveChecks} emptyLabel="No must-have requirements were added for this role yet." />
+          <RequirementChecklistEditor title="Nice-to-have requirements" items={niceToHaveChecks} onChange={setNiceToHaveChecks} emptyLabel="No nice-to-have requirements were added for this role yet." />
+
+          <div className="interview-scorecard-group">
+            <strong>Core evaluation</strong>
+            <div className="score-grid">
+              <Input type="number" min={0} max={10} step="0.5" value={communicationRating} onChange={(event) => setCommunicationRating(event.target.value)} placeholder="Communication / 10" />
+              <Input type="number" min={0} max={10} step="0.5" value={languageRating} onChange={(event) => setLanguageRating(event.target.value)} placeholder="Language / 10" />
+              <Input value={age} onChange={(event) => setAge(event.target.value)} placeholder="Age" />
+              <Input value={nationalIdNumber} onChange={(event) => setNationalIdNumber(event.target.value)} placeholder="National ID number" />
+            </div>
+          </div>
+
+          <div className="interview-scorecard-group">
+            <strong>Interviewer notes</strong>
+            <Textarea rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Overall interview notes" />
+            <Textarea rows={3} value={educationNotes} onChange={(event) => setEducationNotes(event.target.value)} placeholder="Educational background notes" />
+            <Textarea rows={3} value={workExperienceNotes} onChange={(event) => setWorkExperienceNotes(event.target.value)} placeholder="Work experience notes" />
+          </div>
+        </div>
+
+        <div className="agenda-slot-actions">
+          <Button type="button" onClick={() => void saveScorecard()} disabled={saving}>{saving ? "Saving..." : "Save scorecard"}</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SlotEditorCard({ slot, recruiters }: { slot: Slot; recruiters: RecruiterOption[] }) {
   const router = useRouter();
   const { pushToast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [scorecardOpen, setScorecardOpen] = useState(false);
   const [location, setLocation] = useState(slot.location ?? "");
   const [interviewers, setInterviewers] = useState(slot.interviewerNames.join(", "));
   const [startsAt, setStartsAt] = useState(slot.startsAt.slice(0, 16));
@@ -85,53 +262,67 @@ function SlotEditorCard({ slot, recruiters }: { slot: Slot; recruiters: Recruite
   }
 
   return (
-    <details className="agenda-slot-card">
-      <summary className="agenda-slot-summary">
-        <div>
-          <div className="agenda-slot-time">{format(new Date(slot.startsAt), "h:mm a")} - {format(new Date(slot.endsAt), "h:mm a")}</div>
-          <strong>{slot.jobTitle}</strong>
-          <p>{slot.candidateName ?? "Open availability"}</p>
-        </div>
-        <div className="agenda-slot-summary-meta">
-          <span className={`slot-status-pill slot-status-${slot.status.toLowerCase()}`}>{formatStatus(slot.status)}</span>
-          <small>{slot.assignedRecruiterName ?? "Unassigned recruiter"}</small>
-        </div>
-      </summary>
+    <>
+      <details className="agenda-slot-card">
+        <summary className="agenda-slot-summary">
+          <div>
+            <div className="agenda-slot-time">{format(new Date(slot.startsAt), "h:mm a")} - {format(new Date(slot.endsAt), "h:mm a")}</div>
+            <strong>{slot.jobTitle}</strong>
+            <p>{slot.candidateName ?? "Open availability"}</p>
+          </div>
+          <div className="agenda-slot-summary-meta">
+            <span className={`slot-status-pill slot-status-${slot.status.toLowerCase()}`}>{formatStatus(slot.status)}</span>
+            <small>{slot.assignedRecruiterName ?? "Unassigned recruiter"}</small>
+          </div>
+        </summary>
 
-      <div className="agenda-slot-meta">
-        <span>{slot.location ?? "Virtual / TBD"}</span>
-        <span>{slot.interviewerNames.length ? slot.interviewerNames.join(", ") : "No interviewers yet"}</span>
-        <span>{slot.candidateName ? "Schedule changes are posted to notifications." : "Assign a recruiter and candidate to start the flow."}</span>
-      </div>
+        <div className="agenda-slot-meta">
+          <span>{slot.location ?? "Virtual / TBD"}</span>
+          <span>{slot.interviewerNames.length ? slot.interviewerNames.join(", ") : "No interviewers yet"}</span>
+          <span>{slot.candidateName ? "Schedule changes are posted to notifications." : "Assign a recruiter and candidate to start the flow."}</span>
+        </div>
 
-      <div className="agenda-slot-editor">
-        <Input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
-        <Input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} />
-        <select className="input" value={assignedRecruiterId} onChange={(event) => setAssignedRecruiterId(event.target.value)}>
-          <option value="">Assign recruiter</option>
-          {recruiters.map((recruiter) => (
-            <option key={recruiter.id} value={recruiter.id}>{recruiter.fullName}</option>
-          ))}
-        </select>
-        <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Google Meet / Office / Zoom" />
-        <Input value={interviewers} onChange={(event) => setInterviewers(event.target.value)} placeholder="Interviewers, comma separated" />
-        <Input value={slotNotes} onChange={(event) => setSlotNotes(event.target.value)} placeholder="Slot notes / recruiter memo" />
-        {slot.candidateName ? (
-          <select className="input" value={bookingStatus} onChange={(event) => setBookingStatus(event.target.value)}>
-            <option value="SCHEDULED">Scheduled</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="NO_SHOW">No show</option>
-            <option value="CANCELLED">Cancelled</option>
+        <div className="agenda-slot-editor">
+          <Input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
+          <Input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} />
+          <select className="input" value={assignedRecruiterId} onChange={(event) => setAssignedRecruiterId(event.target.value)}>
+            <option value="">Assign recruiter</option>
+            {recruiters.map((recruiter) => (
+              <option key={recruiter.id} value={recruiter.id}>{recruiter.fullName}</option>
+            ))}
           </select>
-        ) : null}
-        {slot.candidateName ? <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Candidate interview notes" /> : null}
-      </div>
+          <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Google Meet / Office / Zoom" />
+          <Input value={interviewers} onChange={(event) => setInterviewers(event.target.value)} placeholder="Interviewers, comma separated" />
+          <Input value={slotNotes} onChange={(event) => setSlotNotes(event.target.value)} placeholder="Slot notes / recruiter memo" />
+          {slot.candidateName ? (
+            <select className="input" value={bookingStatus} onChange={(event) => setBookingStatus(event.target.value)}>
+              <option value="SCHEDULED">Scheduled</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="NO_SHOW">No show</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          ) : null}
+          {slot.candidateName ? <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Candidate interview notes" /> : null}
+        </div>
 
-      <div className="agenda-slot-actions">
-        <Button type="button" onClick={() => void updateSlot()} disabled={saving}>{saving ? "Saving..." : "Save changes"}</Button>
-        {slot.candidateId ? <Link href={`/candidates/${slot.candidateId}`} className="button button-ghost">Open candidate</Link> : null}
-      </div>
-    </details>
+        <div className="agenda-slot-actions">
+          <Button type="button" onClick={() => void updateSlot()} disabled={saving}>{saving ? "Saving..." : "Save changes"}</Button>
+          {slot.candidateId ? <Button type="button" variant="ghost" onClick={() => setScorecardOpen(true)}>Open scorecard</Button> : null}
+          {slot.candidateId ? <Link href={`/candidates/${slot.candidateId}`} className="button button-ghost">Open candidate</Link> : null}
+        </div>
+      </details>
+
+      {scorecardOpen ? (
+        <InterviewScorecardModal
+          slot={slot}
+          onClose={() => setScorecardOpen(false)}
+          onSaved={() => {
+            setScorecardOpen(false);
+            router.refresh();
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

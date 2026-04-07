@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { JobStatus, Role } from "@/lib/models";
 
 import { JobForm } from "@/components/jobs/job-form";
@@ -34,7 +34,6 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   const query = (params.q ?? "").trim().toLowerCase();
   const selectedStatus = params.status ?? "";
   const selectedLocation = params.location ?? "";
-  const usingMockAi = process.env.AI_PROVIDER !== "openai";
 
   const jobs = (await db.job.findMany({
     where: { organizationId: session.organizationId, deletedAt: null },
@@ -72,13 +71,6 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     <div className="page-grid-wide recruiter-workspace-grid">
       <div className="stack-xl">
         <SectionHeading title="Jobs" description="Review open roles, filter quickly, and open the full role detail when needed." />
-
-        {usingMockAi ? (
-          <Card>
-            <strong>AI extraction is running in mock mode.</strong>
-            <p className="muted">Set `AI_PROVIDER=openai` and add `OPENAI_API_KEY` in Vercel if you want role summaries, skills, and generated posts extracted from the real job description instead of the built-in mock provider.</p>
-          </Card>
-        ) : null}
 
         <form className="filter-bar card" method="GET">
           <Input name="q" defaultValue={params.q ?? ""} placeholder="Search by role, campaign, location, or platform" />

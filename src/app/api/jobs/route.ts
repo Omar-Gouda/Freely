@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 
 import { aiProvider } from "@/lib/ai/provider";
 import { requireApiSession } from "@/lib/api-auth";
@@ -11,34 +11,20 @@ function matchSalary(rawDescription: string) {
   return rawDescription.match(/(?:\$|USD|EUR|EGP)?\s?\d+[\d,]*(?:\s*[-/]\s*(?:\$|USD|EUR|EGP)?\s?\d+[\d,]*)?/i)?.[0] ?? null;
 }
 
-function buildExtractionInput(payload: {
-  title: string;
-  location?: string;
-  sector?: string;
-  department?: string;
-  employmentType?: string;
-  seniority?: string;
-  workMode?: string;
-  salaryRange?: string;
-  languageRequirement?: string;
-  experienceRequirement?: string;
-  rawDescription: string;
-}) {
+function buildManualSummary(rawDescription: string) {
+  return rawDescription.replace(/\s+/g, " ").trim().slice(0, 220);
+}
+
+function buildManualSkills(payload: { mustHaveRequirements: string[]; niceToHaveRequirements: string[]; languageRequirement?: string; experienceRequirement?: string }) {
   return [
-    payload.title ? `Role: ${payload.title}` : "",
-    payload.sector ? `Sector: ${payload.sector}` : "",
-    payload.department ? `Department: ${payload.department}` : "",
-    payload.location ? `Location: ${payload.location}` : "",
-    payload.employmentType ? `Employment type: ${payload.employmentType}` : "",
-    payload.seniority ? `Seniority: ${payload.seniority}` : "",
-    payload.workMode ? `Work mode: ${payload.workMode}` : "",
-    payload.salaryRange ? `Compensation: ${payload.salaryRange}` : "",
-    payload.languageRequirement ? `Language requirement: ${payload.languageRequirement}` : "",
-    payload.experienceRequirement ? `Experience requirement: ${payload.experienceRequirement}` : "",
-    payload.rawDescription
+    ...payload.mustHaveRequirements,
+    ...payload.niceToHaveRequirements,
+    payload.languageRequirement || "",
+    payload.experienceRequirement || ""
   ]
+    .map((item) => item.trim())
     .filter(Boolean)
-    .join("\n");
+    .slice(0, 10);
 }
 
 export async function GET(request: NextRequest) {
@@ -63,39 +49,43 @@ export async function POST(request: NextRequest) {
     return fail("Invalid job payload", 400, payload.error.flatten());
   }
 
-  const extracted = await aiProvider.extractJobDescription(buildExtractionInput(payload.data));
-  const requirements = [...(extracted.qualifications ?? []), ...(extracted.responsibilities ?? [])].slice(0, 5);
+  const manualRequirements = [...payload.data.mustHaveRequirements, ...payload.data.niceToHaveRequirements].slice(0, 8);
   const ads = await aiProvider.generateJobAds({
-    title: payload.data.title || extracted.title,
-    summary: extracted.summary,
-    skills: extracted.skills,
-    location: payload.data.location || extracted.location,
-    salary: payload.data.salaryRange || extracted.salary || matchSalary(payload.data.rawDescription),
-    requirements,
-    benefits: extracted.benefits ?? []
+    title: payload.data.title,
+    summary: buildManualSummary(payload.data.rawDescription),
+    skills: buildManualSkills(payload.data),
+    location: payload.data.location || undefined,
+    salary: payload.data.salaryRange || matchSalary(payload.data.rawDescription),
+    requirements: manualRequirements,
+    benefits: []
   });
 
   const job = await db.job.create({
     data: {
       organizationId: auth.session.organizationId,
       createdById: auth.session.id,
-      title: payload.data.title || extracted.title,
+      title: payload.data.title,
       rawDescription: payload.data.rawDescription,
       structuredData: {
-        ...extracted,
+        summary: buildManualSummary(payload.data.rawDescription),
         sector: payload.data.sector || undefined,
         department: payload.data.department || undefined,
         employmentType: payload.data.employmentType || undefined,
-        seniority: payload.data.seniority || extracted.seniority || undefined,
-        workMode: payload.data.workMode || extracted.workMode || undefined,
-        salary: payload.data.salaryRange || extracted.salary || undefined,
+        seniority: payload.data.seniority || undefined,
+        workMode: payload.data.workMode || undefined,
+        salary: payload.data.salaryRange || undefined,
         languageRequirement: payload.data.languageRequirement || undefined,
-        experienceRequirement: payload.data.experienceRequirement || undefined
+        experienceRequirement: payload.data.experienceRequirement || undefined,
+        mustHaveRequirements: payload.data.mustHaveRequirements,
+        niceToHaveRequirements: payload.data.niceToHaveRequirements,
+        skills: buildManualSkills(payload.data)
       },
       headcount: payload.data.headcount,
-      location: payload.data.location || extracted.location,
+      location: payload.data.location || null,
       sourceCampaign: payload.data.sourceCampaign || undefined,
       status: payload.data.status,
+      mustHaveRequirements: payload.data.mustHaveRequirements,
+      niceToHaveRequirements: payload.data.niceToHaveRequirements,
       generatedAds: {
         create: [
           { channel: "facebook", content: ads.facebook },

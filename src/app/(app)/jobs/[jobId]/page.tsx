@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { JobPostGenerator } from "@/components/jobs/job-post-generator";
@@ -28,6 +28,8 @@ type JobDetail = {
   status: string;
   sourceCampaign: string | null;
   rawDescription: string;
+  mustHaveRequirements?: string[];
+  niceToHaveRequirements?: string[];
   structuredData?: {
     summary?: string;
     sector?: string;
@@ -43,6 +45,8 @@ type JobDetail = {
     qualifications?: string[];
     benefits?: string[];
     languages?: string[];
+    mustHaveRequirements?: string[];
+    niceToHaveRequirements?: string[];
   } | null;
   generatedAds: Array<{ id: string; channel: string; content: string }>;
   candidates: JobCandidate[];
@@ -95,6 +99,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
   }, {});
 
   const structured = job.structuredData ?? {};
+  const mustHaveRequirements = job.mustHaveRequirements?.length ? job.mustHaveRequirements : (structured.mustHaveRequirements ?? structured.qualifications ?? []);
+  const niceToHaveRequirements = job.niceToHaveRequirements?.length ? job.niceToHaveRequirements : (structured.niceToHaveRequirements ?? structured.responsibilities ?? []);
 
   return (
     <div className="profile-detail-shell stack-xl">
@@ -121,7 +127,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
       <div className="detail-layout-grid">
         <div className="stack-xl">
           <Card>
-            <SectionHeading title="Role summary" description="Structured hiring details extracted from the recruiter brief." />
+            <SectionHeading title="Role summary" description="Structured hiring details captured from the recruiter brief." />
             <p className="prose-text">{structured.summary || job.rawDescription}</p>
             <div className="detail-pill-row">
               {(structured.skills ?? []).slice(0, 8).map((skill) => (
@@ -130,15 +136,15 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
             </div>
             <div className="two-column-detail-grid">
               <div>
-                <h3 className="detail-section-title">Responsibilities</h3>
+                <h3 className="detail-section-title">Must-have requirements</h3>
                 <ul className="detail-list">
-                  {(structured.responsibilities ?? []).map((item) => <li key={item}>{item}</li>)}
+                  {mustHaveRequirements.length ? mustHaveRequirements.map((item) => <li key={item}>{item}</li>) : <li>No must-have requirements added yet.</li>}
                 </ul>
               </div>
               <div>
-                <h3 className="detail-section-title">Qualifications</h3>
+                <h3 className="detail-section-title">Nice-to-have requirements</h3>
                 <ul className="detail-list">
-                  {(structured.qualifications ?? []).map((item) => <li key={item}>{item}</li>)}
+                  {niceToHaveRequirements.length ? niceToHaveRequirements.map((item) => <li key={item}>{item}</li>) : <li>No nice-to-have requirements added yet.</li>}
                 </ul>
               </div>
             </div>
@@ -146,13 +152,14 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
               <div>
                 <h3 className="detail-section-title">Benefits</h3>
                 <ul className="detail-list">
-                  {(structured.benefits ?? []).map((item) => <li key={item}>{item}</li>)}
+                  {(structured.benefits ?? []).length ? (structured.benefits ?? []).map((item) => <li key={item}>{item}</li>) : <li>No benefits listed.</li>}
                 </ul>
               </div>
               <div>
                 <h3 className="detail-section-title">Languages & package</h3>
                 <ul className="detail-list">
                   {(structured.languages ?? []).map((item) => <li key={item}>{item}</li>)}
+                  {structured.languageRequirement ? <li>{structured.languageRequirement}</li> : null}
                   {structured.salary ? <li>{structured.salary}</li> : null}
                 </ul>
               </div>

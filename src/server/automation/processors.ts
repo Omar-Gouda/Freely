@@ -1,8 +1,9 @@
-import { CandidateStage, FileKind, NotificationKind } from "@/lib/models";
+﻿import { CandidateStage, FileKind, NotificationKind } from "@/lib/models";
 
 import { purgeDeactivatedUserIfDue } from "@/lib/account-lifecycle";
 import { aiProvider } from "@/lib/ai/provider";
 import { createAuditLog } from "@/lib/audit";
+import { purgeCandidateIfDue } from "@/lib/candidate-retention";
 import { db } from "@/lib/db";
 import { log } from "@/lib/logger";
 import { createNotification } from "@/lib/notifications";
@@ -26,6 +27,13 @@ type InterviewReminderPayload = {
 type UserPurgePayload = {
   userId: string;
   expectedDeletionAt?: string;
+};
+
+type CandidatePurgePayload = {
+  candidateId: string;
+  organizationId: string;
+  expectedStage: string;
+  expectedPurgeAt: string;
 };
 
 export async function processCvAnalysis(payload: CandidateJobPayload) {
@@ -213,6 +221,10 @@ export async function processInterviewReminder(payload: InterviewReminderPayload
 
 export async function processUserPurge(payload: UserPurgePayload) {
   await purgeDeactivatedUserIfDue(payload.userId, payload.expectedDeletionAt);
+}
+
+export async function processCandidatePurge(payload: CandidatePurgePayload) {
+  await purgeCandidateIfDue(payload);
 }
 
 export async function withProcessorLogging(jobName: string, run: () => Promise<void>) {

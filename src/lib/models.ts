@@ -1,4 +1,4 @@
-export const Role = {
+﻿export const Role = {
   ADMIN: "ADMIN",
   ORG_HEAD: "ORG_HEAD",
   RECRUITER: "RECRUITER"
@@ -84,6 +84,26 @@ export type CandidateFileRecord = {
   createdAt: Date;
 };
 
+export type RequirementChecklistItem = {
+  label: string;
+  checked: boolean;
+  notes?: string | null;
+};
+
+export type InterviewEvaluation = {
+  mustHaveChecks: RequirementChecklistItem[];
+  niceToHaveChecks: RequirementChecklistItem[];
+  communicationRating?: number | null;
+  languageRating?: number | null;
+  notes?: string | null;
+  educationNotes?: string | null;
+  workExperienceNotes?: string | null;
+  age?: string | null;
+  nationalIdNumber?: string | null;
+  updatedById?: string | null;
+  updatedAt: Date;
+};
+
 export type CandidateStageEventRecord = {
   id: string;
   candidateId: string;
@@ -153,6 +173,8 @@ export type Job = {
   sourceCampaign?: string | null;
   candidateIds: string[];
   generatedAds: GeneratedJobAdRecord[];
+  mustHaveRequirements?: string[];
+  niceToHaveRequirements?: string[];
   deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -187,6 +209,8 @@ export type Candidate = {
   suggestedStage?: CandidateStage | null;
   files: CandidateFileRecord[];
   stageEvents: CandidateStageEventRecord[];
+  scheduledPurgeAt?: Date | null;
+  purgedAt?: Date | null;
   deletedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -214,6 +238,7 @@ export type InterviewBooking = {
   candidateId: string;
   status: InterviewBookingStatus;
   notes?: string | null;
+  interviewEvaluation?: InterviewEvaluation | null;
   createdAt: Date;
   updatedAt: Date;
 };

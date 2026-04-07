@@ -132,5 +132,6 @@ export const queueNames = {
   cvAnalysis: "candidate.cv-analysis",
   voiceAnalysis: "candidate.voice-analysis",
   interviewReminder: "interview.reminder",
-  userPurge: "user.purge"
+  userPurge: "user.purge",
+  candidatePurge: "candidate.purge"
 } as const;

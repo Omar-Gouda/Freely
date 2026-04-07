@@ -1,6 +1,6 @@
 # Freely Recruitment SaaS
 
-Production-shaped recruitment platform for freelance recruiters handling mass hiring with AI-assisted screening, ATS workflows, outreach, scheduling, analytics, and secure file handling.
+Production-shaped recruitment platform for freelance recruiters handling mass hiring with recruiter-managed screening, ATS workflows, outreach, scheduling, analytics, and secure file handling.
 
 ## Stack
 
@@ -8,7 +8,7 @@ Production-shaped recruitment platform for freelance recruiters handling mass hi
 - MongoDB with a lightweight application-side data adapter
 - Supabase Auth for authentication and session handling
 - Supabase Storage and pluggable object storage abstraction
-- Modular AI provider layer with mock and OpenAI implementations
+- Optional OpenAI provider for generated content
 - MongoDB-backed background worker with retry support
 - Sentry-ready monitoring and structured JSON logging
 
@@ -42,12 +42,25 @@ Production-shaped recruitment platform for freelance recruiters handling mass hi
 
 ### Storage
 
-- `SUPABASE_SERVICE_ROLE_KEY` if `STORAGE_DRIVER=supabase`
-- `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, and optional `S3_ENDPOINT` if `STORAGE_DRIVER=s3`
+- Set `STORAGE_DRIVER=supabase` on Vercel unless you intentionally use S3
+- Set `SUPABASE_SERVICE_ROLE_KEY`
+- Set `SUPABASE_STORAGE_BUCKET`
+- Keep `NEXT_PUBLIC_SUPABASE_URL` pointed at the same Supabase project
+- The app now auto-creates the Supabase bucket if it is missing and the service-role key has permission
+- Use `STORAGE_DRIVER=s3` only when you also provide `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, and optional `S3_ENDPOINT`
+- Do not use `STORAGE_DRIVER=local` on Vercel
+
+### Recruiter workflow behavior
+
+- Job posters now enter must-have and nice-to-have requirements manually
+- Interviewers can complete a scorecard/checklist from the interview calendar popup
+- Candidate CVs and voice notes are scheduled for purge 7 days after the candidate reaches `HIRED` or `REJECTED`
+- User avatars are preserved, and replacing an avatar deletes the previous avatar asset to save storage
 
 ### AI
 
-- `OPENAI_API_KEY` if `AI_PROVIDER=openai`
+- `OPENAI_API_KEY` is optional and only needed when `AI_PROVIDER=openai`
+- Job requirement entry no longer depends on AI extraction
 
 ### Monitoring and logging
 
@@ -60,18 +73,17 @@ Production-shaped recruitment platform for freelance recruiters handling mass hi
 
 ### Deployment recommendations
 
-- Use `STORAGE_DRIVER=supabase` or `STORAGE_DRIVER=s3` on Vercel. Do not use `local` storage in production because serverless file systems are ephemeral.
-- Keep the default `vercel.json` cron so `/api/internal/queue/run` continues processing CV and voice analysis jobs in production.
-- Set `CRON_SECRET` in Vercel so the cron route is protected.
-- Point `APP_URL` to your production domain.
-- Run the health check at `/api/health` after deployment.
-- Add the Sentry DSNs before go-live so unhandled client and server errors are captured.
-- Add `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` if you want readable source-mapped stack traces in Sentry.
+- Keep the default `vercel.json` cron so `/api/internal/queue/run` continues processing scheduled cleanup and automation jobs in production
+- Set `CRON_SECRET` in Vercel so the cron route is protected
+- Point `APP_URL` to your production domain
+- Run the health check at `/api/health` after deployment
+- Add the Sentry DSNs before go-live so unhandled client and server errors are captured
+- Add `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` if you want readable source-mapped stack traces in Sentry
 
 ## Production notes
 
-- Rotate secrets, enforce HTTPS, and terminate TLS at the edge.
-- Replace the mock AI provider by setting `AI_PROVIDER=openai`.
-- For local or VM deployments, you can still run `npm run worker` as a separate process.
-- For Vercel deployments, the queue can be processed through the protected cron route instead of a long-running worker.
-- Every request now carries an `x-request-id` header to improve traceability in logs.
+- Rotate secrets, enforce HTTPS, and terminate TLS at the edge
+- Replace the mock AI provider by setting `AI_PROVIDER=openai` only if you want generated content features
+- For local or VM deployments, you can still run `npm run worker` as a separate process
+- For Vercel deployments, the queue can be processed through the protected cron route instead of a long-running worker
+- Every request now carries an `x-request-id` header to improve traceability in logs

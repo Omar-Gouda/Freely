@@ -22,6 +22,9 @@ export function createStorageProvider() {
       return new SupabaseStorageProvider();
 
     case "local":
+      if (process.env.VERCEL) {
+        throw new Error("Local file storage is not supported on Vercel. Set STORAGE_DRIVER=supabase or STORAGE_DRIVER=s3.");
+      }
       return new LocalStorageProvider();
 
     default:

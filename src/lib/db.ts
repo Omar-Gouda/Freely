@@ -482,6 +482,8 @@ export const db: any = {
         sourceCampaign: (data.sourceCampaign as string | undefined) ?? null,
         candidateIds: [],
         generatedAds,
+        mustHaveRequirements: (data.mustHaveRequirements as string[] | undefined) ?? [],
+        niceToHaveRequirements: (data.niceToHaveRequirements as string[] | undefined) ?? [],
         deletedAt: null,
         createdAt: timestamp,
         updatedAt: timestamp
@@ -597,6 +599,8 @@ export const db: any = {
         rankingScore: 0,
         suggestedStage: null,
         files: [],
+        scheduledPurgeAt: null,
+        purgedAt: null,
         stageEvents: stageEventCreate
           ? [{
               id: randomUUID(),
@@ -648,7 +652,7 @@ export const db: any = {
       const updated: Candidate = {
         ...current,
         ...data,
-        files: current.files,
+        files: data.files !== undefined ? (data.files as CandidateFileRecord[]) : current.files,
         stageEvents,
         updatedAt: now()
       } as Candidate;
@@ -751,6 +755,7 @@ export const db: any = {
         candidateId: String(data.candidateId),
         status: String(data.status ?? "SCHEDULED") as InterviewBooking["status"],
         notes: (data.notes as string | undefined) ?? null,
+        interviewEvaluation: (data.interviewEvaluation as InterviewBooking["interviewEvaluation"] | undefined) ?? null,
         createdAt: now(),
         updatedAt: now()
       };

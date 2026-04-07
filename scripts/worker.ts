@@ -1,5 +1,5 @@
-import { ensureQueueStarted, queue, queueNames } from "@/lib/queue";
-import { processCvAnalysis, processInterviewReminder, processVoiceAnalysis, withProcessorLogging } from "@/server/automation/processors";
+﻿import { ensureQueueStarted, queue, queueNames } from "@/lib/queue";
+import { processCandidatePurge, processCvAnalysis, processInterviewReminder, processVoiceAnalysis, withProcessorLogging } from "@/server/automation/processors";
 
 async function main() {
   await ensureQueueStarted();
@@ -31,6 +31,16 @@ async function main() {
 
     await withProcessorLogging(queueNames.interviewReminder, async () => {
       await processInterviewReminder(job.data as { organizationId: string; slotId: string; expectedStartAt: string; expectedRecruiterId: string });
+    });
+  });
+
+  await queue.work(queueNames.candidatePurge, async ([job]) => {
+    if (!job) {
+      return;
+    }
+
+    await withProcessorLogging(queueNames.candidatePurge, async () => {
+      await processCandidatePurge(job.data as { candidateId: string; organizationId: string; expectedStage: string; expectedPurgeAt: string });
     });
   });
 

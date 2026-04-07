@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -13,6 +13,13 @@ const employmentOptions = ["Full-time", "Part-time", "Contract", "Internship", "
 const workModeOptions = ["On-site", "Hybrid", "Remote", "Field"];
 const seniorityOptions = ["Entry level", "Junior", "Mid level", "Senior", "Lead", "Manager"];
 const languageOptions = ["English", "Arabic", "French", "German", "Italian", "Spanish", "Portuguese", "Ukrainian", "Other"];
+
+function splitLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
   const router = useRouter();
@@ -31,34 +38,22 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
   const [salaryRange, setSalaryRange] = useState("");
   const [languageRequirement, setLanguageRequirement] = useState("English");
   const [experienceRequirement, setExperienceRequirement] = useState("");
+  const [mustHaveRequirements, setMustHaveRequirements] = useState("");
+  const [niceToHaveRequirements, setNiceToHaveRequirements] = useState("");
   const [status, setStatus] = useState<string>(JobStatus.OPEN);
 
   const descriptionCount = useMemo(() => rawDescription.trim().length, [rawDescription]);
 
   async function handleSubmit() {
     setLoading(true);
-    const extractResponse = await fetch("/api/jobs/extract", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rawDescription })
-    });
-    const extractPayload = await extractResponse.json().catch(() => ({ error: "Job extraction failed" }));
-
-    if (!extractResponse.ok) {
-      pushToast({ title: "Job extraction failed", description: extractPayload.error ?? "Please try again.", tone: "error" });
-      setLoading(false);
-      return;
-    }
-
-    const extracted = extractPayload.data;
     const createResponse = await fetch("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: title || extracted.title,
+        title,
         rawDescription,
         headcount: Number(headcount || 1),
-        location: location || extracted.location || "",
+        location,
         sourceCampaign,
         sector,
         department,
@@ -68,6 +63,8 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
         salaryRange,
         languageRequirement,
         experienceRequirement,
+        mustHaveRequirements: splitLines(mustHaveRequirements),
+        niceToHaveRequirements: splitLines(niceToHaveRequirements),
         status: canManageStatus ? status : JobStatus.OPEN
       })
     });
@@ -79,7 +76,7 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
       return;
     }
 
-    pushToast({ title: "Job created", description: "Structured role details and platform-ready posts are ready.", tone: "success" });
+    pushToast({ title: "Job created", description: "The role, requirements, and posting content are ready.", tone: "success" });
     setLoading(false);
     setTitle("");
     setHeadcount("25");
@@ -93,6 +90,8 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
     setSalaryRange("");
     setLanguageRequirement("English");
     setExperienceRequirement("");
+    setMustHaveRequirements("");
+    setNiceToHaveRequirements("");
     setStatus(JobStatus.OPEN);
     setRawDescription("");
     router.refresh();
@@ -185,16 +184,33 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
       </div>
 
       <div className="stack-md">
+        <div className="job-form-section-header">
+          <strong>Requirements</strong>
+          <small>List each requirement on its own line so interviewers can review them later in the scorecard.</small>
+        </div>
+        <div className="two-column-detail-grid">
+          <label className="field-shell field-shell-full">
+            <span>Must-have requirements</span>
+            <Textarea rows={6} value={mustHaveRequirements} onChange={(event) => setMustHaveRequirements(event.target.value)} placeholder={"Fluent English\n1+ year in customer support\nCRM experience"} />
+          </label>
+          <label className="field-shell field-shell-full">
+            <span>Nice-to-have requirements</span>
+            <Textarea rows={6} value={niceToHaveRequirements} onChange={(event) => setNiceToHaveRequirements(event.target.value)} placeholder={"BPO background\nSalesforce experience\nCall-center QA exposure"} />
+          </label>
+        </div>
+      </div>
+
+      <div className="stack-md">
         <div className="list-row list-row-start">
           <div>
             <strong>Role brief</strong>
-            <p className="muted">Paste the job brief, requirements, benefits, shifts, KPIs, or screening notes.</p>
+            <p className="muted">Paste the recruiter brief, benefits, shifts, KPIs, or screening notes.</p>
           </div>
           <small>{descriptionCount} characters</small>
         </div>
         <Textarea
           name="rawDescription"
-          placeholder="Paste the full job brief, salary details, requirements, benefits, shifts, KPIs, and hiring notes here"
+          placeholder="Paste the full job brief, salary details, benefits, shifts, KPIs, and hiring notes here"
           required
           rows={10}
           value={rawDescription}
@@ -202,8 +218,8 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
         />
       </div>
 
-      <Button type="button" disabled={loading || descriptionCount < 30} onClick={handleSubmit}>
-        {loading ? "Creating role..." : "Create role and generate platform posts"}
+      <Button type="button" disabled={loading || descriptionCount < 30 || !title.trim()} onClick={handleSubmit}>
+        {loading ? "Creating role..." : "Create role"}
       </Button>
 
       <datalist id="job-sectors">

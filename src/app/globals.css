@@ -2893,3 +2893,66 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 14, 41, 0.38);
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  z-index: 80;
+}
+
+.modal-card {
+  width: min(960px, 100%);
+  max-height: min(88vh, 980px);
+  overflow: auto;
+  padding: 1.4rem;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 28px 80px rgba(37, 21, 70, 0.22);
+  border: 1px solid rgba(137, 92, 255, 0.14);
+}
+
+.interview-scorecard-modal {
+  display: grid;
+  gap: 1rem;
+}
+
+.interview-scorecard-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.interview-scorecard-group {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: rgba(245, 240, 255, 0.72);
+  border: 1px solid rgba(145, 102, 255, 0.12);
+}
+
+.interview-checklist-stack {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.interview-checklist-item {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.interview-checklist-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.interview-checklist-toggle input {
+  width: 18px;
+  height: 18px;
+}

@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 import { createAuditLog } from "@/lib/audit";
 import { requireApiSession } from "@/lib/api-auth";
+import { syncCandidateRetention } from "@/lib/candidate-retention";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { createNotification } from "@/lib/notifications";
@@ -39,6 +40,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
   });
+
+  await syncCandidateRetention(updated);
 
   await createNotification({
     organizationId: auth.session.organizationId,

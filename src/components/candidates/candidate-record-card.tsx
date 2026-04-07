@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -77,8 +77,8 @@ export function CandidateRecordCard({ candidate }: { candidate: CandidateRecord 
 
   const cvFile = useMemo(() => candidate.files.find((file) => file.kind === "CV") ?? null, [candidate.files]);
   const voiceFile = useMemo(() => candidate.files.find((file) => file.kind === "VOICE_NOTE") ?? null, [candidate.files]);
-  const previewUrl = cvFile ? `/api/files/${encodeURIComponent(cvFile.storageKey)}` : "";
-  const voiceUrl = voiceFile ? `/api/files/${encodeURIComponent(voiceFile.storageKey)}` : "";
+  const previewUrl = cvFile ? `/api/candidates/${candidate.id}/files?fileId=${cvFile.id}&preview=1` : "";
+  const voiceUrl = voiceFile ? `/api/candidates/${candidate.id}/files?fileId=${voiceFile.id}&preview=1` : "";
 
   async function saveChanges() {
     setSaving(true);

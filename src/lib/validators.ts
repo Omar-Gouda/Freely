@@ -1,4 +1,4 @@
-import { AccountType, CandidateStage, InterviewBookingStatus, JobStatus, OutreachKind, Role } from "@/lib/models";
+﻿import { AccountType, CandidateStage, InterviewBookingStatus, JobStatus, OutreachKind, Role } from "@/lib/models";
 import { z } from "zod";
 
 const optionalUrlSchema = z.preprocess((value) => {
@@ -13,6 +13,26 @@ const optionalUrlSchema = z.preprocess((value) => {
 
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }, z.union([z.string().url(), z.literal("")]));
+
+const requirementListSchema = z.array(z.string().min(1).max(120)).max(20).default([]);
+
+const interviewChecklistItemSchema = z.object({
+  label: z.string().min(1).max(120),
+  checked: z.boolean(),
+  notes: z.string().max(300).optional().or(z.literal(""))
+});
+
+export const interviewEvaluationSchema = z.object({
+  mustHaveChecks: z.array(interviewChecklistItemSchema).max(30).default([]),
+  niceToHaveChecks: z.array(interviewChecklistItemSchema).max(30).default([]),
+  communicationRating: z.coerce.number().min(0).max(10).nullable().optional(),
+  languageRating: z.coerce.number().min(0).max(10).nullable().optional(),
+  notes: z.string().max(2000).optional().or(z.literal("")),
+  educationNotes: z.string().max(1000).optional().or(z.literal("")),
+  workExperienceNotes: z.string().max(1500).optional().or(z.literal("")),
+  age: z.string().max(40).optional().or(z.literal("")),
+  nationalIdNumber: z.string().max(80).optional().or(z.literal(""))
+});
 
 export const signupSchema = z.object({
   accountType: z.nativeEnum(AccountType),
@@ -73,6 +93,8 @@ export const jobSchema = z.object({
   salaryRange: z.string().max(120).optional().or(z.literal("")),
   languageRequirement: z.string().max(80).optional().or(z.literal("")),
   experienceRequirement: z.string().max(120).optional().or(z.literal("")),
+  mustHaveRequirements: requirementListSchema,
+  niceToHaveRequirements: requirementListSchema,
   status: z.nativeEnum(JobStatus).default(JobStatus.DRAFT)
 });
 
@@ -162,7 +184,8 @@ export const interviewUpdateSchema = z.object({
   bookingStatus: z.nativeEnum(InterviewBookingStatus).optional(),
   slotNotes: z.string().max(250).optional().or(z.literal("")),
   notes: z.string().max(200).optional().or(z.literal("")),
-  sendReminder: z.boolean().optional()
+  sendReminder: z.boolean().optional(),
+  interviewEvaluation: interviewEvaluationSchema.optional()
 });
 
 export const outreachTemplateSchema = z.object({

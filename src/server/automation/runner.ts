@@ -1,5 +1,5 @@
-import { ensureQueueStarted, queue, queueNames } from "@/lib/queue";
-import { processCvAnalysis, processInterviewReminder, processUserPurge, processVoiceAnalysis, withProcessorLogging } from "@/server/automation/processors";
+﻿import { ensureQueueStarted, queue, queueNames } from "@/lib/queue";
+import { processCandidatePurge, processCvAnalysis, processInterviewReminder, processUserPurge, processVoiceAnalysis, withProcessorLogging } from "@/server/automation/processors";
 
 export async function runAutomationQueues(limitPerQueue = 5) {
   await ensureQueueStarted();
@@ -44,11 +44,22 @@ export async function runAutomationQueues(limitPerQueue = 5) {
     });
   }, limitPerQueue);
 
+  const candidatePurgeProcessed = await queue.drain(queueNames.candidatePurge, async ([job]) => {
+    if (!job) {
+      return;
+    }
+
+    await withProcessorLogging(queueNames.candidatePurge, async () => {
+      await processCandidatePurge(job.data as { candidateId: string; organizationId: string; expectedStage: string; expectedPurgeAt: string });
+    });
+  }, limitPerQueue);
+
   return {
     cvProcessed,
     voiceProcessed,
     interviewReminderProcessed,
     userPurgeProcessed,
-    totalProcessed: cvProcessed + voiceProcessed + interviewReminderProcessed + userPurgeProcessed
+    candidatePurgeProcessed,
+    totalProcessed: cvProcessed + voiceProcessed + interviewReminderProcessed + userPurgeProcessed + candidatePurgeProcessed
   };
 }

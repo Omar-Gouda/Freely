@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 import { requireApiSession } from "@/lib/api-auth";
 import { createAuditLog } from "@/lib/audit";
+import { syncCandidateRetention } from "@/lib/candidate-retention";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { createNotification } from "@/lib/notifications";
@@ -92,6 +93,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     include: { files: true, job: true }
   });
 
+  await syncCandidateRetention(updated);
+
   if (nextStage !== current.stage) {
     await createNotification({
       organizationId: auth.session.organizationId,
@@ -128,7 +131,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   await db.candidate.update({
     where: { id: candidate.id },
-    data: { deletedAt: new Date() }
+    data: { deletedAt: new Date(), scheduledPurgeAt: null }
   });
 
   await createAuditLog({

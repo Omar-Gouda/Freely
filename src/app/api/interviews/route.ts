@@ -7,7 +7,8 @@ import { createAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
 import { createNotification } from "@/lib/notifications";
-import { interviewBookingSchema, interviewSlotSchema, interviewUpdateSchema } from "@/lib/validators";
+import { interviewBookingSchema, interviewEvaluationSchema, interviewSlotSchema, interviewUpdateSchema } from "@/lib/validators";
+import { z } from "zod";
 
 async function getAssignedRecruiter(organizationId: string, assignedRecruiterId?: string | null) {
   if (!assignedRecruiterId) {
@@ -30,6 +31,30 @@ async function getAssignedRecruiter(organizationId: string, assignedRecruiterId?
 
 function formatScheduleLabel(startsAt: Date, endsAt: Date) {
   return `${format(startsAt, "EEE, MMM d")} - ${format(startsAt, "h:mm a")} - ${format(endsAt, "h:mm a")}`;
+}
+
+function normalizeInterviewEvaluation(input: z.infer<typeof interviewEvaluationSchema>, userId: string) {
+  return {
+    mustHaveChecks: input.mustHaveChecks.map((item) => ({
+      label: item.label,
+      checked: item.checked,
+      notes: item.notes || null
+    })),
+    niceToHaveChecks: input.niceToHaveChecks.map((item) => ({
+      label: item.label,
+      checked: item.checked,
+      notes: item.notes || null
+    })),
+    communicationRating: input.communicationRating ?? null,
+    languageRating: input.languageRating ?? null,
+    notes: input.notes || null,
+    educationNotes: input.educationNotes || null,
+    workExperienceNotes: input.workExperienceNotes || null,
+    age: input.age || null,
+    nationalIdNumber: input.nationalIdNumber || null,
+    updatedById: userId,
+    updatedAt: new Date()
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -209,6 +234,10 @@ export async function PATCH(request: NextRequest) {
     return fail("Interview slot not found", 404);
   }
 
+  if (payload.data.interviewEvaluation && !slot.booking) {
+    return fail("An interview scorecard can only be saved for a booked candidate.", 409);
+  }
+
   const nextStartsAt = payload.data.startsAt ? new Date(payload.data.startsAt) : slot.startsAt;
   const nextEndsAt = payload.data.endsAt ? new Date(payload.data.endsAt) : slot.endsAt;
 
@@ -257,22 +286,17 @@ export async function PATCH(request: NextRequest) {
     include: { booking: { include: { candidate: true } }, job: true }
   });
 
-  if (slot.booking && (payload.data.bookingStatus || payload.data.notes !== undefined)) {
+  if (slot.booking && (payload.data.bookingStatus || payload.data.notes !== undefined || payload.data.interviewEvaluation !== undefined)) {
     await db.interviewBooking.update({
       where: { slotId: slot.id },
       data: {
         status: bookingStatus,
-        notes: payload.data.notes !== undefined ? payload.data.notes || null : slot.booking.notes
+        notes: payload.data.notes !== undefined ? payload.data.notes || null : slot.booking.notes,
+        interviewEvaluation: payload.data.interviewEvaluation
+          ? normalizeInterviewEvaluation(payload.data.interviewEvaluation, auth.session.id)
+          : slot.booking.interviewEvaluation ?? null
       }
     });
-
-    if (bookingStatus === InterviewBookingStatus.COMPLETED) {
-      await db.candidate.update({ where: { id: slot.booking.candidateId }, data: { stage: "HIRED" } });
-    }
-
-    if (bookingStatus === InterviewBookingStatus.NO_SHOW) {
-      await db.candidate.update({ where: { id: slot.booking.candidateId }, data: { stage: "REJECTED" } });
-    }
   }
 
   const assignedRecruiter = await getAssignedRecruiter(auth.session.organizationId, assignedRecruiterId);

@@ -27,18 +27,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     summary?: string;
     skills?: string[];
     location?: string;
+    mustHaveRequirements?: string[];
+    niceToHaveRequirements?: string[];
     qualifications?: string[];
     responsibilities?: string[];
     benefits?: string[];
     salary?: string;
   };
+  const requirements = [
+    ...(job.mustHaveRequirements ?? structured.mustHaveRequirements ?? []),
+    ...(job.niceToHaveRequirements ?? structured.niceToHaveRequirements ?? []),
+    ...(structured.qualifications ?? []),
+    ...(structured.responsibilities ?? [])
+  ].slice(0, 8);
   const ads = await aiProvider.generateJobAds({
     title: job.title,
     summary: structured.summary ?? job.rawDescription.slice(0, 180),
-    skills: structured.skills ?? ["Communication", "Execution"],
+    skills: structured.skills ?? requirements,
     location: job.location ?? structured.location,
     salary: structured.salary ?? matchSalary(job.rawDescription),
-    requirements: [...(structured.qualifications ?? []), ...(structured.responsibilities ?? [])].slice(0, 5),
+    requirements,
     benefits: structured.benefits ?? []
   });
 

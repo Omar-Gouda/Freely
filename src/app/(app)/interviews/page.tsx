@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+﻿import { format } from "date-fns";
 
 import { CalendarView } from "@/components/interviews/calendar-view";
 import { InterviewBookingForm, InterviewSlotForm } from "@/components/interviews/interview-slot-form";
@@ -16,8 +16,21 @@ type InterviewSlotItem = {
   interviewerNames: string[];
   notes: string | null;
   assignedRecruiterId: string | null;
-  job: { title: string };
-  booking: { status: string; notes: string | null; candidate: { id: string; firstName: string; lastName: string; jobId?: string } } | null;
+  job: {
+    title: string;
+    mustHaveRequirements?: string[];
+    niceToHaveRequirements?: string[];
+    structuredData?: {
+      mustHaveRequirements?: string[];
+      niceToHaveRequirements?: string[];
+    } | null;
+  };
+  booking: {
+    status: string;
+    notes: string | null;
+    interviewEvaluation?: Record<string, unknown> | null;
+    candidate: { id: string; firstName: string; lastName: string; jobId?: string };
+  } | null;
 };
 
 type InterviewsPageProps = {
@@ -73,7 +86,10 @@ export default async function InterviewsPage({ searchParams }: InterviewsPagePro
     bookingStatus: slot.booking?.status ?? null,
     notesFromBooking: slot.booking?.notes ?? null,
     assignedRecruiterId: slot.assignedRecruiterId ?? null,
-    assignedRecruiterName: slot.assignedRecruiterId ? recruiterDirectory[slot.assignedRecruiterId] ?? null : null
+    assignedRecruiterName: slot.assignedRecruiterId ? recruiterDirectory[slot.assignedRecruiterId] ?? null : null,
+    mustHaveRequirements: slot.job.mustHaveRequirements?.length ? slot.job.mustHaveRequirements : (slot.job.structuredData?.mustHaveRequirements ?? []),
+    niceToHaveRequirements: slot.job.niceToHaveRequirements?.length ? slot.job.niceToHaveRequirements : (slot.job.structuredData?.niceToHaveRequirements ?? []),
+    interviewEvaluation: slot.booking?.interviewEvaluation ?? null
   }));
 
   const availableSlots = calendarSlots

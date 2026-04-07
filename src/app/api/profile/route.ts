@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+﻿import { randomUUID } from "crypto";
 
 import { NextRequest } from "next/server";
 
@@ -114,6 +114,11 @@ export async function POST(request: NextRequest) {
     const auth = await requireApiSession(request);
     if ("error" in auth) return auth.error;
 
+    const user = await db.user.findFirst({
+      where: { id: auth.session.id, deletedAt: null },
+      select: { avatarStorageKey: true }
+    });
+
     const formData = await request.formData();
     const file = formData.get("file");
 
@@ -124,13 +129,23 @@ export async function POST(request: NextRequest) {
     validateUpload(file, ["image/png", "image/jpeg", "image/webp"]);
     const buffer = await fileToBuffer(file);
     const stored = await storageProvider.upload({
-      fileName: `${randomUUID()}-${file.name}`,
+      fileName: `avatars/${auth.session.id}/${randomUUID()}-${file.name}`,
       contentType: file.type,
       body: buffer
     });
 
+    if (user?.avatarStorageKey) {
+      await storageProvider.delete(user.avatarStorageKey).catch((error) => {
+        log("warn", "Old avatar cleanup failed", {
+          userId: auth.session.id,
+          storageKey: user.avatarStorageKey,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+    }
+
     const avatarUrl = `/api/profile/avatar?userId=${auth.session.id}&ts=${Date.now()}`;
-    const user = await db.user.update({
+    const updatedUser = await db.user.update({
       where: { id: auth.session.id },
       data: {
         avatarUrl,
@@ -143,7 +158,7 @@ export async function POST(request: NextRequest) {
       userId: auth.session.id,
       action: "user.avatar_updated",
       entityType: "user",
-      entityId: user.id
+      entityId: updatedUser.id
     });
 
     return ok({ avatarUrl });

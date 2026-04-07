@@ -1,4 +1,4 @@
-﻿import { FileKind } from "@/lib/models";
+import { FileKind } from "@/lib/models";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireApiSession } from "@/lib/api-auth";
@@ -69,24 +69,39 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   try {
     const isCv = kind === "cv";
+    const fileKind = isCv ? FileKind.CV : FileKind.VOICE_NOTE;
     validateUpload(file, isCv ? uploadMimeTypes.cv : uploadMimeTypes.voice);
     const buffer = await fileToBuffer(file);
     const stored = await storageProvider.upload({
-      fileName: file.name,
+      fileName: `candidates/${candidate.id}/${isCv ? "cv" : "voice"}/${file.name}`,
       contentType: file.type,
       body: buffer
     });
 
+    const previousFiles = (candidate.files ?? []).filter((item: { kind: string }) => item.kind === fileKind);
     const savedFile = await db.candidateFile.create({
       data: {
         candidateId: candidate.id,
-        kind: isCv ? FileKind.CV : FileKind.VOICE_NOTE,
+        kind: fileKind,
         fileName: stored.fileName,
         mimeType: stored.contentType,
         storageKey: stored.key,
         sizeBytes: stored.sizeBytes
       }
     });
+
+    if (previousFiles.length) {
+      await db.candidate.update({
+        where: { id: candidate.id },
+        data: {
+          files: [...(candidate.files ?? []).filter((item: { kind: string }) => item.kind !== fileKind), savedFile]
+        }
+      });
+
+      for (const previousFile of previousFiles) {
+        await storageProvider.delete(previousFile.storageKey).catch(() => undefined);
+      }
+    }
 
     await ensureQueueStarted();
     await queue.send(isCv ? queueNames.cvAnalysis : queueNames.voiceAnalysis, {
