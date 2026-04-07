@@ -1,7 +1,8 @@
 import { OutreachGenerator } from "@/components/outreach/outreach-generator";
-import { CopyButton } from "@/components/ui/copy-button";
 import { Card } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -26,20 +27,34 @@ export default async function OutreachPage() {
   ])) as unknown as [OutreachCandidate[], OutreachTemplate[]];
 
   return (
-    <div className="page-grid-wide">
-      <div className="stack-xl">
-        <SectionHeading title="WhatsApp outreach" description="Generate recruiter-ready messages and reuse saved drafts when needed." />
-        <Card>
-          <OutreachGenerator
-            candidates={candidates.map((candidate) => ({
-              id: candidate.id,
-              name: `${candidate.firstName} ${candidate.lastName}`,
-              phone: candidate.phone,
-              jobTitle: candidate.job.title
-            }))}
-          />
-        </Card>
-        <Card>
+    <div className="stack-xl workspace-screen-shell">
+      <WorkspaceHero
+        scene="outreach"
+        eyebrow="Recruiter messaging"
+        title="Generate faster outreach without losing the candidate and role context behind each message."
+        description="The refreshed outreach space keeps templates, message generation, and recruiter actions visually simpler so teams can move faster with less clutter."
+        stats={[
+          { label: "Candidates in reach", value: String(candidates.length) },
+          { label: "Saved templates", value: String(templates.length) },
+          { label: "Active page", value: "WhatsApp" }
+        ]}
+      />
+
+      <div className="page-grid-wide workspace-split-layout">
+        <div className="stack-xl">
+          <Card>
+            <SectionHeading title="WhatsApp outreach" description="Generate recruiter-ready messages and reuse saved drafts when needed." />
+            <OutreachGenerator
+              candidates={candidates.map((candidate) => ({
+                id: candidate.id,
+                name: `${candidate.firstName} ${candidate.lastName}`,
+                phone: candidate.phone,
+                jobTitle: candidate.job.title
+              }))}
+            />
+          </Card>
+        </div>
+        <Card className="workspace-side-card workspace-side-card-rich">
           <SectionHeading title="Saved templates" description="Recent message drafts that recruiters can reuse fast." />
           <div className="list-stack">
             {templates.map((template) => (

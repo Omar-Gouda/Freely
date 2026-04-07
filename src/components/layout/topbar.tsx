@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Menu, Sparkles } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -10,20 +10,55 @@ import { useToast } from "@/components/feedback/toast";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { getInitials } from "@/lib/utils";
 
+function getPageMeta(pathname: string) {
+  if (pathname.startsWith("/jobs")) {
+    return { title: "Jobs", description: "Keep role briefs, requirements, and campaign content structured from one place." };
+  }
+
+  if (pathname.startsWith("/candidates")) {
+    return { title: "Candidates", description: "Review parsed profiles, scorecards, files, and pipeline updates without losing context." };
+  }
+
+  if (pathname.startsWith("/interviews")) {
+    return { title: "Interviews", description: "Manage calendars, recruiter assignments, and candidate scorecards in one schedule." };
+  }
+
+  if (pathname.startsWith("/analytics")) {
+    return { title: "Analytics", description: "Track funnel movement, source quality, and recruiter activity at a glance." };
+  }
+
+  if (pathname.startsWith("/outreach")) {
+    return { title: "Outreach", description: "Create recruiter-ready messaging and keep templates organized for reuse." };
+  }
+
+  if (pathname.startsWith("/profile")) {
+    return { title: "Profile", description: "Manage your recruiter identity, contact details, and workspace avatar presets." };
+  }
+
+  if (pathname.startsWith("/settings")) {
+    return { title: "Settings", description: "Adjust team access, workspace rules, and operating preferences." };
+  }
+
+  return { title: "Dashboard", description: "Monitor live hiring demand, upcoming interviews, and pipeline momentum." };
+}
+
 export function Topbar({
   name,
   email,
-  avatarUrl
+  avatarUrl,
+  onMenuToggle
 }: {
   name: string;
   email: string;
   avatarUrl?: string | null;
+  onMenuToggle?: () => void;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { pushToast } = useToast();
   const [loggingOut, setLoggingOut] = useState(false);
+  const meta = getPageMeta(pathname);
 
   const tourHref = useMemo(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -50,16 +85,21 @@ export function Topbar({
   }
 
   return (
-    <header className="topbar">
-      <div className="topbar-copy">
-        <div className="topbar-kicker">
-          <Sparkles size={14} />
-          <span>Recruitment workspace</span>
+    <header className="topbar topbar-refined">
+      <div className="topbar-leading">
+        <button type="button" className="topbar-menu-button" onClick={onMenuToggle} aria-label="Open navigation menu">
+          <Menu size={18} />
+        </button>
+        <div className="topbar-copy topbar-copy-refined">
+          <div className="topbar-kicker">
+            <Sparkles size={14} />
+            <span>{meta.title}</span>
+          </div>
+          <h1>{meta.title}</h1>
+          <p>{meta.description}</p>
         </div>
-        <h1>Recruitment Command Center</h1>
-        <p>Jobs, candidates, interviews, and recruiter activity in one clean workspace.</p>
       </div>
-      <div className="topbar-actions">
+      <div className="topbar-actions topbar-actions-refined">
         <NotificationBell />
         <details className="profile-menu">
           <summary className="avatar-button" aria-label={`Open profile menu for ${email}`}>

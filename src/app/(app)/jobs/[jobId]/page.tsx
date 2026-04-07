@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { JobPostGenerator } from "@/components/jobs/job-post-generator";
@@ -6,6 +6,7 @@ import { JobStatusManager } from "@/components/jobs/job-status-manager";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Role } from "@/lib/models";
@@ -103,7 +104,19 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
   const niceToHaveRequirements = job.niceToHaveRequirements?.length ? job.niceToHaveRequirements : (structured.niceToHaveRequirements ?? structured.responsibilities ?? []);
 
   return (
-    <div className="profile-detail-shell stack-xl">
+    <div className="profile-detail-shell stack-xl workspace-screen-shell">
+      <WorkspaceHero
+        scene="jobs"
+        eyebrow="Role profile"
+        title={job.title}
+        description={`Keep the brief, requirements, posting variants, and applicant activity for ${job.title} in one clean role view.`}
+        stats={[
+          { label: "Applicants", value: String(job.candidates.length) },
+          { label: "Post variants", value: String(job.generatedAds.length) },
+          { label: "Headcount", value: String(job.headcount) }
+        ]}
+      />
+
       <div className="detail-hero card">
         <div className="stack-md">
           <Link href="/jobs" className="back-link">Back to jobs</Link>
@@ -124,7 +137,7 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
         </div>
       </div>
 
-      <div className="detail-layout-grid">
+      <div className="detail-layout-grid detail-layout-grid-rich">
         <div className="stack-xl">
           <Card>
             <SectionHeading title="Role summary" description="Structured hiring details captured from the recruiter brief." />
@@ -145,22 +158,6 @@ export default async function JobDetailPage({ params }: { params: Promise<{ jobI
                 <h3 className="detail-section-title">Nice-to-have requirements</h3>
                 <ul className="detail-list">
                   {niceToHaveRequirements.length ? niceToHaveRequirements.map((item) => <li key={item}>{item}</li>) : <li>No nice-to-have requirements added yet.</li>}
-                </ul>
-              </div>
-            </div>
-            <div className="two-column-detail-grid">
-              <div>
-                <h3 className="detail-section-title">Benefits</h3>
-                <ul className="detail-list">
-                  {(structured.benefits ?? []).length ? (structured.benefits ?? []).map((item) => <li key={item}>{item}</li>) : <li>No benefits listed.</li>}
-                </ul>
-              </div>
-              <div>
-                <h3 className="detail-section-title">Languages & package</h3>
-                <ul className="detail-list">
-                  {(structured.languages ?? []).map((item) => <li key={item}>{item}</li>)}
-                  {structured.languageRequirement ? <li>{structured.languageRequirement}</li> : null}
-                  {structured.salary ? <li>{structured.salary}</li> : null}
                 </ul>
               </div>
             </div>

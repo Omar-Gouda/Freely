@@ -1,4 +1,4 @@
-﻿import { AccountType, CandidateStage, InterviewBookingStatus, JobStatus, OutreachKind, Role } from "@/lib/models";
+import { AccountType, CandidateStage, InterviewBookingStatus, JobStatus, OutreachKind, Role } from "@/lib/models";
 import { z } from "zod";
 
 const optionalUrlSchema = z.preprocess((value) => {
@@ -14,12 +14,12 @@ const optionalUrlSchema = z.preprocess((value) => {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }, z.union([z.string().url(), z.literal("")]));
 
-const requirementListSchema = z.array(z.string().min(1).max(120)).max(20).default([]);
+const requirementListSchema = z.array(z.string().min(1).max(240)).max(30).default([]);
 
 const interviewChecklistItemSchema = z.object({
-  label: z.string().min(1).max(120),
+  label: z.string().min(1).max(160),
   checked: z.boolean(),
-  notes: z.string().max(300).optional().or(z.literal(""))
+  notes: z.string().max(400).optional().or(z.literal(""))
 });
 
 export const interviewEvaluationSchema = z.object({
@@ -56,6 +56,7 @@ export const profileUpdateSchema = z.object({
   location: z.string().max(120).optional().or(z.literal("")),
   address: z.string().max(180).optional().or(z.literal("")),
   bio: z.string().max(500).optional().or(z.literal("")),
+  avatarUrl: z.string().max(160).optional().or(z.literal("")),
   skills: z.array(z.string().min(1).max(40)).max(30).default([]),
   experienceSummary: z.string().max(2000).optional().or(z.literal("")),
   educationSummary: z.string().max(2000).optional().or(z.literal("")),
@@ -80,19 +81,19 @@ export const contactRequestSchema = z.object({
 });
 
 export const jobSchema = z.object({
-  title: z.string().min(2).max(120),
-  rawDescription: z.string().min(30),
+  title: z.string().min(2).max(140),
+  rawDescription: z.string().min(30).max(12000),
   headcount: z.coerce.number().int().min(1).max(10000),
-  location: z.string().max(80).optional().or(z.literal("")),
-  sourceCampaign: z.string().max(120).optional().or(z.literal("")),
+  location: z.string().max(120).optional().or(z.literal("")),
+  sourceCampaign: z.string().max(180).optional().or(z.literal("")),
   sector: z.string().max(80).optional().or(z.literal("")),
   department: z.string().max(80).optional().or(z.literal("")),
   employmentType: z.string().max(80).optional().or(z.literal("")),
   seniority: z.string().max(80).optional().or(z.literal("")),
   workMode: z.string().max(80).optional().or(z.literal("")),
-  salaryRange: z.string().max(120).optional().or(z.literal("")),
+  salaryRange: z.string().max(180).optional().or(z.literal("")),
   languageRequirement: z.string().max(80).optional().or(z.literal("")),
-  experienceRequirement: z.string().max(120).optional().or(z.literal("")),
+  experienceRequirement: z.string().max(160).optional().or(z.literal("")),
   mustHaveRequirements: requirementListSchema,
   niceToHaveRequirements: requirementListSchema,
   status: z.nativeEnum(JobStatus).default(JobStatus.DRAFT)

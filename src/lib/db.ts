@@ -599,6 +599,7 @@ export const db: any = {
         rankingScore: 0,
         suggestedStage: null,
         files: [],
+        interviewScorecards: [],
         scheduledPurgeAt: null,
         purgedAt: null,
         stageEvents: stageEventCreate

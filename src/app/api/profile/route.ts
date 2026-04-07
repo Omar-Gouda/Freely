@@ -1,15 +1,13 @@
-﻿import { randomUUID } from "crypto";
-
 import { NextRequest } from "next/server";
 
 import { requireApiSession } from "@/lib/api-auth";
+import { isAvatarPresetUrl } from "@/lib/avatar-presets";
 import { createAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { fail, ok } from "@/lib/http";
 import { log } from "@/lib/logger";
 import { storageProvider } from "@/lib/storage";
-import { fileToBuffer, validateUpload } from "@/lib/uploads";
 import { profileUpdateSchema } from "@/lib/validators";
 import { createRouteHandlerClient } from "@/utils/supabase/route";
 
@@ -76,6 +74,26 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    const currentUser = await db.user.findFirst({
+      where: { id: auth.session.id, deletedAt: null },
+      select: { avatarStorageKey: true, avatarUrl: true }
+    });
+
+    const nextAvatarUrl = payload.data.avatarUrl || null;
+    if (nextAvatarUrl && !isAvatarPresetUrl(nextAvatarUrl)) {
+      return fail("Invalid avatar selection", 400);
+    }
+
+    if (currentUser?.avatarStorageKey && nextAvatarUrl !== currentUser.avatarUrl) {
+      await storageProvider.delete(currentUser.avatarStorageKey).catch((error) => {
+        log("warn", "Avatar cleanup failed while switching to preset avatar", {
+          userId: auth.session.id,
+          storageKey: currentUser.avatarStorageKey,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+    }
+
     const user = await db.user.update({
       where: { id: auth.session.id },
       data: {
@@ -87,6 +105,8 @@ export async function PATCH(request: NextRequest) {
         location: payload.data.location || null,
         address: payload.data.address || null,
         bio: payload.data.bio || null,
+        avatarUrl: nextAvatarUrl,
+        avatarStorageKey: nextAvatarUrl ? null : currentUser?.avatarStorageKey ?? null,
         skills: payload.data.skills,
         experienceSummary: payload.data.experienceSummary || null,
         educationSummary: payload.data.educationSummary || null,
@@ -109,61 +129,6 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  try {
-    const auth = await requireApiSession(request);
-    if ("error" in auth) return auth.error;
-
-    const user = await db.user.findFirst({
-      where: { id: auth.session.id, deletedAt: null },
-      select: { avatarStorageKey: true }
-    });
-
-    const formData = await request.formData();
-    const file = formData.get("file");
-
-    if (!(file instanceof File)) {
-      return fail("Avatar file is required", 400);
-    }
-
-    validateUpload(file, ["image/png", "image/jpeg", "image/webp"]);
-    const buffer = await fileToBuffer(file);
-    const stored = await storageProvider.upload({
-      fileName: `avatars/${auth.session.id}/${randomUUID()}-${file.name}`,
-      contentType: file.type,
-      body: buffer
-    });
-
-    if (user?.avatarStorageKey) {
-      await storageProvider.delete(user.avatarStorageKey).catch((error) => {
-        log("warn", "Old avatar cleanup failed", {
-          userId: auth.session.id,
-          storageKey: user.avatarStorageKey,
-          error: error instanceof Error ? error.message : String(error)
-        });
-      });
-    }
-
-    const avatarUrl = `/api/profile/avatar?userId=${auth.session.id}&ts=${Date.now()}`;
-    const updatedUser = await db.user.update({
-      where: { id: auth.session.id },
-      data: {
-        avatarUrl,
-        avatarStorageKey: stored.key
-      }
-    });
-
-    await createAuditLog({
-      organizationId: auth.session.organizationId,
-      userId: auth.session.id,
-      action: "user.avatar_updated",
-      entityType: "user",
-      entityId: updatedUser.id
-    });
-
-    return ok({ avatarUrl });
-  } catch (error) {
-    log("error", "POST /profile avatar failed", { error: error instanceof Error ? error.message : String(error) });
-    return fail(error instanceof Error ? error.message : "Avatar upload failed", 400);
-  }
+export async function POST() {
+  return fail("Avatar uploads are disabled. Choose a preset avatar from profile settings.", 405);
 }

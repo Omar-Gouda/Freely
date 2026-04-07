@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { CandidateStage } from "@/lib/models";
 
 import { CandidateForm } from "@/components/candidates/candidate-form";
 import { CandidateSummaryCard } from "@/components/candidates/candidate-summary-card";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { CandidateStage } from "@/lib/models";
 
 type CandidateJob = { id: string; title: string };
 
@@ -90,55 +91,70 @@ export default async function CandidatesPage({ searchParams }: CandidatesPagePro
   });
 
   const sourceOptions = Array.from(new Set(candidates.map((candidate) => candidate.source))).sort();
+  const scorecardReady = candidates.filter((candidate) => candidate.stage === CandidateStage.INTERVIEW_SCHEDULED || candidate.stage === CandidateStage.HIRED).length;
 
   return (
-    <div className="page-grid-wide recruiter-workspace-grid">
-      <div className="stack-xl">
-        <SectionHeading title="Candidates" description="Search the candidate list, filter by role or stage, and open full profiles when needed." />
+    <div className="stack-xl workspace-screen-shell">
+      <WorkspaceHero
+        scene="candidates"
+        eyebrow="Talent intake"
+        title="Parse stronger candidate profiles and keep interview references attached to the person, not just the calendar."
+        description="Resume parsing now focuses on skills, education, and date-based experience, while the UI gives recruiters a cleaner place to review and update candidate records."
+        stats={[
+          { label: "Candidates", value: String(candidates.length) },
+          { label: "Filtered view", value: String(filteredCandidates.length) },
+          { label: "Interview-ready", value: String(scorecardReady) }
+        ]}
+      />
 
-        <form className="filter-bar card" method="GET">
-          <Input name="q" defaultValue={params.q ?? ""} placeholder="Search by candidate, role, source, or location" />
-          <select name="jobId" className="input" defaultValue={selectedJobId}>
-            <option value="">All roles</option>
-            {jobs.map((job) => (
-              <option key={job.id} value={job.id}>{job.title}</option>
-            ))}
-          </select>
-          <select name="stage" className="input" defaultValue={selectedStage}>
-            <option value="">All stages</option>
-            {Object.values(CandidateStage).map((stage) => (
-              <option key={stage} value={stage}>{stage.replaceAll("_", " ")}</option>
-            ))}
-          </select>
-          <select name="source" className="input" defaultValue={selectedSource}>
-            <option value="">All sources</option>
-            {sourceOptions.map((source) => (
-              <option key={source} value={source}>{source}</option>
-            ))}
-          </select>
-          <div className="filter-actions">
-            <button type="submit" className="button button-primary">Apply filters</button>
-            <Link href="/candidates" className="button button-ghost">Reset</Link>
-          </div>
-        </form>
+      <div className="page-grid-wide recruiter-workspace-grid workspace-split-layout">
+        <div className="stack-xl">
+          <SectionHeading title="Candidates" description="Search the candidate list, filter by role or stage, and open full profiles when needed." />
 
-        {filteredCandidates.length ? (
-          <div className="talent-card-grid">
-            {filteredCandidates.map((candidate) => (
-              <CandidateSummaryCard key={candidate.id} candidate={candidate} />
-            ))}
-          </div>
-        ) : (
-          <Card>
-            <strong>No candidates match these filters.</strong>
-            <p className="muted">Try clearing a filter or broadening the search phrase.</p>
-          </Card>
-        )}
+          <form className="filter-bar card filter-bar-rich" method="GET">
+            <Input name="q" defaultValue={params.q ?? ""} placeholder="Search by candidate, role, source, or location" />
+            <select name="jobId" className="input" defaultValue={selectedJobId}>
+              <option value="">All roles</option>
+              {jobs.map((job) => (
+                <option key={job.id} value={job.id}>{job.title}</option>
+              ))}
+            </select>
+            <select name="stage" className="input" defaultValue={selectedStage}>
+              <option value="">All stages</option>
+              {Object.values(CandidateStage).map((stage) => (
+                <option key={stage} value={stage}>{stage.replaceAll("_", " ")}</option>
+              ))}
+            </select>
+            <select name="source" className="input" defaultValue={selectedSource}>
+              <option value="">All sources</option>
+              {sourceOptions.map((source) => (
+                <option key={source} value={source}>{source}</option>
+              ))}
+            </select>
+            <div className="filter-actions">
+              <button type="submit" className="button button-primary">Apply filters</button>
+              <Link href="/candidates" className="button button-ghost">Reset</Link>
+            </div>
+          </form>
+
+          {filteredCandidates.length ? (
+            <div className="talent-card-grid talent-card-grid-roomy">
+              {filteredCandidates.map((candidate) => (
+                <CandidateSummaryCard key={candidate.id} candidate={candidate} />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <strong>No candidates match these filters.</strong>
+              <p className="muted">Try clearing a filter or broadening the search phrase.</p>
+            </Card>
+          )}
+        </div>
+        <Card className="sticky-card workspace-side-card workspace-side-card-rich">
+          <SectionHeading title="Add candidate" description="Upload the CV first so the parser can prefill skills, education, and total experience." />
+          <CandidateForm jobs={jobs} />
+        </Card>
       </div>
-      <Card className="sticky-card workspace-side-card">
-        <SectionHeading title="Add candidate" />
-        <CandidateForm jobs={jobs} />
-      </Card>
     </div>
   );
 }

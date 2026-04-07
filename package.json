@@ -20,6 +20,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^3.10.0",
+    "@lottiefiles/react-lottie-player": "^3.6.0",
     "@next/swc-wasm-nodejs": "^15.5.14",
     "@radix-ui/react-slot": "^1.1.2",
     "@sentry/nextjs": "^10.47.0",
@@ -58,6 +59,3 @@
     "typescript": "^5.8.2"
   }
 }
-
-
-

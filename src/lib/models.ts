@@ -1,4 +1,4 @@
-﻿export const Role = {
+export const Role = {
   ADMIN: "ADMIN",
   ORG_HEAD: "ORG_HEAD",
   RECRUITER: "RECRUITER"
@@ -101,6 +101,19 @@ export type InterviewEvaluation = {
   age?: string | null;
   nationalIdNumber?: string | null;
   updatedById?: string | null;
+  updatedAt: Date;
+};
+
+export type CandidateInterviewScorecard = {
+  id: string;
+  slotId: string;
+  bookingStatus: InterviewBookingStatus;
+  jobTitle: string;
+  interviewerNames: string[];
+  location?: string | null;
+  scheduledAt: Date;
+  evaluation: InterviewEvaluation;
+  createdAt: Date;
   updatedAt: Date;
 };
 
@@ -208,6 +221,7 @@ export type Candidate = {
   rankingScore: number;
   suggestedStage?: CandidateStage | null;
   files: CandidateFileRecord[];
+  interviewScorecards: CandidateInterviewScorecard[];
   stageEvents: CandidateStageEventRecord[];
   scheduledPurgeAt?: Date | null;
   purgedAt?: Date | null;
@@ -281,12 +295,12 @@ export type QueueJob = {
   id: string;
   name: string;
   data: Record<string, unknown>;
-  status: "queued" | "processing" | "completed" | "failed";
   attempts: number;
   maxAttempts: number;
   priority: number;
-  lastError?: string | null;
   runAfter: Date;
+  status: "queued" | "processing" | "completed" | "failed";
+  lastError?: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

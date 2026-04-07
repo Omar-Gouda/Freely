@@ -1,7 +1,8 @@
-﻿import { FunnelChart } from "@/components/charts/funnel-chart";
+import { FunnelChart } from "@/components/charts/funnel-chart";
 import { SourceChart } from "@/components/charts/source-chart";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { getAnalyticsOverview } from "@/lib/analytics";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -26,9 +27,20 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
   const analytics = await getAnalyticsOverview(session.organizationId, selectedJobId || undefined);
 
   return (
-    <div className="stack-xl">
-      <SectionHeading title="Analytics dashboard" description="Monitor the overall funnel or drill into one job to track candidate progress, pipeline movement, and recent recruiter activity." />
-      <Card className="filter-bar">
+    <div className="stack-xl workspace-screen-shell">
+      <WorkspaceHero
+        scene="analytics"
+        eyebrow="Hiring insights"
+        title="Track funnel movement and source quality from a calmer analytics surface."
+        description="The analytics view now pairs cleaner filters with lighter cards so hiring teams can spot momentum without wading through noise."
+        stats={[
+          { label: "Jobs in scope", value: String(analytics.totals.jobs) },
+          { label: "Candidates", value: String(analytics.totals.candidates) },
+          { label: "Avg. days to hire", value: String(analytics.avgTimeToHireDays) }
+        ]}
+      />
+
+      <Card className="filter-bar filter-bar-rich">
         <form method="GET" className="filter-bar-inline">
           <select name="jobId" className="input" defaultValue={selectedJobId}>
             <option value="">All jobs</option>

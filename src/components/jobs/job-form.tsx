@@ -1,4 +1,4 @@
-ï»¿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -14,11 +14,26 @@ const workModeOptions = ["On-site", "Hybrid", "Remote", "Field"];
 const seniorityOptions = ["Entry level", "Junior", "Mid level", "Senior", "Lead", "Manager"];
 const languageOptions = ["English", "Arabic", "French", "German", "Italian", "Spanish", "Portuguese", "Ukrainian", "Other"];
 
-function splitLines(value: string) {
+function splitRequirements(value: string) {
   return value
     .split(/\r?\n/)
-    .map((item) => item.trim())
+    .flatMap((item) => item.split(/[;|]/))
+    .map((item) => item.replace(/^[-•*\s]+/, "").trim())
     .filter(Boolean);
+}
+
+function flattenFieldErrors(details: unknown) {
+  if (!details || typeof details !== "object") {
+    return "Please review the form and try again.";
+  }
+
+  const fieldErrors = (details as { fieldErrors?: Record<string, string[]> }).fieldErrors;
+  if (!fieldErrors) {
+    return "Please review the form and try again.";
+  }
+
+  const firstError = Object.entries(fieldErrors).find(([, messages]) => Array.isArray(messages) && messages.length);
+  return firstError ? `${firstError[0]}: ${firstError[1][0]}` : "Please review the form and try again.";
 }
 
 export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
@@ -43,6 +58,8 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
   const [status, setStatus] = useState<string>(JobStatus.OPEN);
 
   const descriptionCount = useMemo(() => rawDescription.trim().length, [rawDescription]);
+  const mustHaveCount = useMemo(() => splitRequirements(mustHaveRequirements).length, [mustHaveRequirements]);
+  const niceToHaveCount = useMemo(() => splitRequirements(niceToHaveRequirements).length, [niceToHaveRequirements]);
 
   async function handleSubmit() {
     setLoading(true);
@@ -63,15 +80,18 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
         salaryRange,
         languageRequirement,
         experienceRequirement,
-        mustHaveRequirements: splitLines(mustHaveRequirements),
-        niceToHaveRequirements: splitLines(niceToHaveRequirements),
+        mustHaveRequirements: splitRequirements(mustHaveRequirements),
+        niceToHaveRequirements: splitRequirements(niceToHaveRequirements),
         status: canManageStatus ? status : JobStatus.OPEN
       })
     });
 
     const createPayload = await createResponse.json().catch(() => ({ error: "Job creation failed" }));
     if (!createResponse.ok) {
-      pushToast({ title: "Job creation failed", description: createPayload.error ?? "Please try again.", tone: "error" });
+      const description = createPayload.error === "Invalid job payload"
+        ? flattenFieldErrors(createPayload.details)
+        : createPayload.error ?? "Please try again.";
+      pushToast({ title: "Job creation failed", description, tone: "error" });
       setLoading(false);
       return;
     }
@@ -98,8 +118,8 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
   }
 
   return (
-    <div className="stack-lg">
-      <div className="stack-md">
+    <div className="stack-lg job-form-shell">
+      <div className="stack-md form-insight-card">
         <div className="job-form-section-header">
           <strong>Role basics</strong>
           <small>Core identity and hiring demand.</small>
@@ -142,7 +162,7 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
         </div>
       </div>
 
-      <div className="stack-md">
+      <div className="stack-md form-insight-card">
         <div className="job-form-section-header">
           <strong>Hiring setup</strong>
           <small>Structured fields for reporting and outreach.</small>
@@ -183,10 +203,13 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
         </div>
       </div>
 
-      <div className="stack-md">
-        <div className="job-form-section-header">
-          <strong>Requirements</strong>
-          <small>List each requirement on its own line so interviewers can review them later in the scorecard.</small>
+      <div className="stack-md form-insight-card">
+        <div className="list-row list-row-start">
+          <div className="job-form-section-header">
+            <strong>Requirements</strong>
+            <small>Add one item per line. We keep these for interview scorecards later.</small>
+          </div>
+          <small>{mustHaveCount + niceToHaveCount} items</small>
         </div>
         <div className="two-column-detail-grid">
           <label className="field-shell field-shell-full">
@@ -200,7 +223,7 @@ export function JobForm({ canManageStatus }: { canManageStatus: boolean }) {
         </div>
       </div>
 
-      <div className="stack-md">
+      <div className="stack-md form-insight-card">
         <div className="list-row list-row-start">
           <div>
             <strong>Role brief</strong>

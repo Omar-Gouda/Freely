@@ -2,6 +2,7 @@ import { CandidateStage } from "@/lib/models";
 
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatScore } from "@/lib/utils";
@@ -63,23 +64,18 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <div className="stack-xl">
-      <div className="dashboard-hero card">
-        <div className="dashboard-hero-copy">
-          <p className="eyebrow eyebrow-soft">Overview</p>
-          <SectionHeading title="Operations overview" description="Track live hiring demand, priority talent, and recent activity from one clean view." />
-        </div>
-        <div className="dashboard-highlight-grid">
-          <div className="dashboard-highlight-tile">
-            <small>Qualified now</small>
-            <strong>{stageCounts.find((item) => item.stage === CandidateStage.QUALIFIED)?.count ?? 0}</strong>
-          </div>
-          <div className="dashboard-highlight-tile">
-            <small>Recent alerts</small>
-            <strong>{notifications.length}</strong>
-          </div>
-        </div>
-      </div>
+    <div className="stack-xl workspace-screen-shell">
+      <WorkspaceHero
+        scene="dashboard"
+        eyebrow="Operations overview"
+        title="See live hiring demand, priority talent, and recruiter activity from one cleaner command surface."
+        description="The refreshed dashboard uses clearer hierarchy, lighter spacing, and focused metric cards so teams can act faster without feeling buried in widgets."
+        stats={[
+          { label: "Active jobs", value: String(jobCount) },
+          { label: "Candidates", value: String(candidateCount) },
+          { label: "Interviews queued", value: String(stageCounts.find((item) => item.stage === CandidateStage.INTERVIEW_SCHEDULED)?.count ?? 0) }
+        ]}
+      />
 
       <div className="stats-grid dashboard-stats-grid">
         <Card><strong>{jobCount}</strong><span>Active jobs</span></Card>

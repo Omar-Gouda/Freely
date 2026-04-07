@@ -1,173 +1,195 @@
 import Link from "next/link";
+import { ArrowRight, CheckCircle2, Layers3, MessageSquareShare, ShieldCheck, UsersRound } from "lucide-react";
 
+import { ContextLottie } from "@/components/lottie/context-lottie";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { Card } from "@/components/ui/card";
 
-const capabilities = [
+const heroStats = [
+  { value: "Jobs", label: "structured with must-have and nice-to-have requirements" },
+  { value: "Candidates", label: "parsed into profiles, files, notes, and scorecards" },
+  { value: "Interviews", label: "managed from live schedules with recruiter ownership" }
+];
+
+const featureCards = [
   {
-    title: "Jobs become structured hiring plans",
-    description: "Paste the raw job description once and keep the brief, extracted details, generated posting content, and delivery plan tied to the same role."
+    icon: Layers3,
+    title: "Role setup that stays structured",
+    description: "Recruiters enter job requirements manually, keep must-have versus nice-to-have clean, and generate posting content without losing the original brief."
   },
   {
-    title: "Candidates stay connected to the right pipeline",
-    description: "Track every applicant inside the correct role, keep evaluation notes visible, and avoid losing context when the pipeline gets busy."
+    icon: UsersRound,
+    title: "Candidate profiles built for action",
+    description: "Parsed resumes, CV previews, voice notes, pipeline stages, and interview references stay visible on the same candidate profile."
   },
   {
-    title: "Interviews run from one live schedule",
-    description: "Create recruiter-owned slots, assign candidates, and keep scheduling changes visible through the in-app notification system."
+    icon: MessageSquareShare,
+    title: "Outreach and interviews in the same flow",
+    description: "Keep schedule changes, follow-up messaging, and recruiter notes connected so teams do less manual recovery work."
   },
   {
-    title: "Admins keep control across organizations",
-    description: "Platform admins can manage access, create accounts, review organizations, and control account lifecycle without leaving the workspace."
+    icon: ShieldCheck,
+    title: "Multi-role control without clutter",
+    description: "Admins, org heads, and recruiters each get the views they need without turning the product into a maze."
   }
 ];
 
 const workflowSteps = [
-  "Create the role and keep the hiring brief clean from day one.",
-  "Review resumes, profiles, and evaluation signals in the same place.",
-  "Move candidates through the pipeline with clear ownership.",
-  "Schedule interviews, track recruiters, and keep the team aligned.",
-  "Use analytics and outreach to tighten the loop and hire faster."
+  "Create the role with recruiter-defined requirements and package details.",
+  "Parse incoming resumes into editable candidate profiles with better skill and education detection.",
+  "Schedule interviews, open scorecards from the calendar, and keep the evaluation on the candidate profile.",
+  "Move accepted or rejected candidates through retention rules so old files are purged automatically.",
+  "Review analytics, outreach, and recruiter activity from one responsive workspace."
 ];
 
-const roleBenefits = [
+const teamModes = [
   {
-    title: "Admin control",
-    description: "See every organization, control roles, deactivate access safely, reactivate within the recovery window, and remove accounts permanently when needed."
+    title: "Recruiters",
+    description: "Fast job posting, candidate review, outreach, scheduling, and scorecards without admin clutter."
   },
   {
-    title: "Organization head workflow",
-    description: "Create recruiters inside the organization, keep hiring activity coordinated, and maintain structure without platform-wide admin risk."
+    title: "Org heads",
+    description: "A cleaner operational view over jobs, recruiters, and hiring throughput across the team."
   },
   {
-    title: "Recruiter focus",
-    description: "Stay inside jobs, candidates, outreach, interviews, and notifications without carrying setup clutter meant for admins."
+    title: "Admins",
+    description: "Centralized control for organizations, access, and long-term platform governance."
   }
 ];
 
 const faqs = [
   {
-    title: "Who is Freely built for?",
-    description: "Recruiters, agency teams, and hiring leads who want one organized workspace instead of scattered tools and manual follow-up."
+    title: "Can we manage resumes, voice notes, and scorecards together?",
+    description: "Yes. Candidate files, interview evaluations, and recruiter notes stay tied to the same profile for later reference."
   },
   {
-    title: "Can it support multiple organizations?",
-    description: "Yes. Platform admins can manage multiple organizations and assign the right access level inside each one."
+    title: "Is the product mobile friendly?",
+    description: "Yes. The redesign includes a burger navigation on mobile and tablet, with cleaner spacing for crowded operational pages."
   },
   {
-    title: "Does it help with interview coordination?",
-    description: "Yes. Recruiters can create slots, assign candidates, and rely on in-app notifications to keep the schedule visible."
+    title: "Do users need to upload personal photos?",
+    description: "No. Recruiters can now select from preset workspace avatars instead of uploading profile images."
   },
   {
-    title: "What if we need onboarding help?",
-    description: "Use the contact page to request support, report issues, or plan a guided launch before your team rolls it out fully."
+    title: "What happens after a candidate is accepted or rejected?",
+    description: "Candidate resumes and voice notes can be purged automatically after the retention period while user avatars stay intact."
   }
 ];
 
 export function PublicLanding() {
   return (
-    <main className="landing-shell landing-shell-spacious">
+    <main className="landing-shell landing-shell-revamp">
       <SiteHeader />
 
-      <section className="landing-grid landing-hero-grid" id="platform">
-        <Card className="landing-card landing-hero-card landing-hero-spotlight landing-hero-large">
-          <span className="eyebrow landing-eyebrow">Recruitment operating system</span>
-          <h1>Turn recruiting chaos into one organized hiring workspace.</h1>
-          <p className="landing-lead landing-copy-limit">Freely helps recruiters, organization heads, and platform admins manage the entire hiring flow from one system. Jobs, candidates, interviews, outreach, analytics, permissions, and support stay connected instead of scattered across disconnected tools.</p>
-          <div className="landing-cta-row">
-            <Link href="/login" className="button button-ghost">Sign in</Link>
-            <Link href="/signup" className="button button-primary">Sign up</Link>
-            <Link href="/contact" className="button button-ghost">Contact us</Link>
-          </div>
-          <div className="landing-metric-grid landing-metric-grid-wide">
-            <div className="landing-metric-card"><strong>Structured jobs</strong><span>Keep descriptions, extracted details, and job content connected.</span></div>
-            <div className="landing-metric-card"><strong>Clear pipelines</strong><span>Track candidate progress by role without losing context.</span></div>
-            <div className="landing-metric-card"><strong>Live interview views</strong><span>Schedule slots and keep recruiter ownership visible.</span></div>
-            <div className="landing-metric-card"><strong>Admin oversight</strong><span>Manage organizations, users, and account lifecycle from one place.</span></div>
-          </div>
-        </Card>
-
-        <Card className="landing-card landing-proof-card">
-          <div className="stack-lg">
-            <div>
-              <span className="eyebrow landing-eyebrow-soft">Why teams switch</span>
-              <h2>Less admin drag. More visible hiring momentum.</h2>
+      <section className="landing-hero-band" id="platform">
+        <Card className="landing-card landing-hero-card-revamp">
+          <div className="landing-hero-copy stack-lg">
+            <div className="stack-md">
+              <span className="eyebrow landing-eyebrow">Recruitment operating system</span>
+              <h1>Turn scattered recruiting work into one animated, organized hiring workspace.</h1>
+              <p className="landing-lead landing-copy-limit">Freely brings jobs, candidates, interviews, analytics, outreach, and admin control into one system that feels clearer on desktop, tablet, and mobile. The landing experience now mirrors the product: structured, visual, and designed for momentum.</p>
             </div>
-            <div className="landing-points">
-              {capabilities.map((point) => (
-                <div key={point.title} className="landing-point">
-                  <strong>{point.title}</strong>
-                  <span>{point.description}</span>
+            <div className="landing-cta-row landing-cta-row-rich">
+              <Link href="/signup" className="button button-primary">Create workspace <ArrowRight size={16} /></Link>
+              <Link href="/login" className="button button-ghost">Sign in</Link>
+              <Link href="/contact" className="button button-ghost">Book a demo</Link>
+            </div>
+            <div className="landing-metric-grid landing-metric-grid-wide landing-metric-grid-revamp">
+              {heroStats.map((stat) => (
+                <div key={stat.value} className="landing-metric-card landing-metric-card-rich">
+                  <strong>{stat.value}</strong>
+                  <span>{stat.label}</span>
                 </div>
               ))}
             </div>
           </div>
+          <div className="landing-hero-visual">
+            <ContextLottie scene="landing" />
+          </div>
         </Card>
       </section>
 
-      <section className="landing-grid landing-three-column-grid" id="workflow">
-        <Card className="landing-card">
-          <span className="eyebrow landing-eyebrow-soft">Workflow</span>
-          <h2>Built around the real hiring sequence.</h2>
+      <section className="landing-showcase-grid" id="workflow">
+        <Card className="landing-card landing-showcase-card">
+          <div className="stack-md">
+            <span className="eyebrow landing-eyebrow-soft">Why teams switch</span>
+            <h2>Less clutter. Stronger recruiter focus. Better context retention.</h2>
+          </div>
+          <div className="landing-feature-grid">
+            {featureCards.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <div key={feature.title} className="landing-feature-tile">
+                  <span className="landing-feature-icon"><Icon size={18} /></span>
+                  <strong>{feature.title}</strong>
+                  <p>{feature.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card className="landing-card landing-animation-card">
+          <span className="eyebrow landing-eyebrow-soft">Interactive workflow</span>
+          <h2>Built for the real recruiting sequence.</h2>
           <div className="marketing-step-list">
             {workflowSteps.map((step, index) => (
-              <div key={step} className="marketing-step-row">
+              <div key={step} className="marketing-step-row marketing-step-row-rich">
                 <span>{index + 1}</span>
                 <p>{step}</p>
               </div>
             ))}
           </div>
         </Card>
+      </section>
 
-        <Card className="landing-card">
-          <span className="eyebrow landing-eyebrow-soft">Visibility</span>
-          <h2>Everyone sees what matters to them.</h2>
-          <p className="landing-copy">Recruiters stay focused on execution. Organization heads keep team activity organized. Admins keep account control, organization visibility, and long-term platform governance.</p>
-          <div className="landing-points compact-points">
-            <div className="landing-point"><strong>Notifications</strong><span>Important changes stay visible in the workspace and on the device while the app is open.</span></div>
-            <div className="landing-point"><strong>Support</strong><span>Users can reach support without leaving the product context.</span></div>
+      <section className="landing-section-grid" id="teams">
+        <Card className="landing-card landing-lottie-panel">
+          <div className="stack-md">
+            <span className="eyebrow landing-eyebrow-soft">Teams</span>
+            <h2>Every role gets a cleaner view of the work.</h2>
+          </div>
+          <div className="landing-team-grid">
+            {teamModes.map((mode) => (
+              <div key={mode.title} className="landing-point landing-point-rich">
+                <strong>{mode.title}</strong>
+                <span>{mode.description}</span>
+              </div>
+            ))}
           </div>
         </Card>
-
-        <Card className="landing-card">
-          <span className="eyebrow landing-eyebrow-soft">Results</span>
-          <h2>One system instead of repeated re-entry.</h2>
-          <p className="landing-copy">Freely keeps the job brief, candidate records, scheduling context, outreach, and analytics connected so the team does less manual recovery work and more actual hiring work.</p>
-          <div className="landing-cta-row">
-            <Link href="/signup" className="button button-primary">Start with Freely</Link>
-            <Link href="/contact" className="button button-ghost">Book a walkthrough</Link>
+        <Card className="landing-card landing-compact-visual">
+          <ContextLottie scene="dashboard" compact />
+          <div className="stack-sm">
+            <strong>Catchy UI without losing clarity</strong>
+            <p className="landing-copy">Animated cues, strong hierarchy, and responsive layouts help recruiters scan information faster instead of wrestling with crowded screens.</p>
           </div>
         </Card>
       </section>
 
-      <section className="landing-grid landing-secondary-grid" id="roles">
-        {roleBenefits.map((item) => (
-          <Card className="landing-card" key={item.title}>
-            <span className="eyebrow landing-eyebrow-soft">Team structure</span>
-            <h2>{item.title}</h2>
-            <p className="landing-copy">{item.description}</p>
-          </Card>
-        ))}
-      </section>
-
-      <section className="landing-grid landing-secondary-grid" id="faq">
+      <section className="landing-section-grid" id="faq">
         <Card className="landing-card landing-faq-card landing-faq-card-wide">
           <span className="eyebrow landing-eyebrow-soft">Questions</span>
-          <h2>Common questions before launch.</h2>
+          <h2>Common questions before rollout.</h2>
           <div className="landing-points faq-grid">
             {faqs.map((item) => (
-              <div key={item.title} className="landing-point">
+              <div key={item.title} className="landing-point landing-point-rich">
                 <strong>{item.title}</strong>
                 <span>{item.description}</span>
               </div>
             ))}
           </div>
         </Card>
-        <Card className="landing-card landing-cta-panel">
+        <Card className="landing-card landing-cta-panel landing-cta-panel-rich">
           <span className="eyebrow landing-eyebrow-soft">Ready to move?</span>
-          <h2>Bring your recruiting workflow into one place.</h2>
-          <p className="landing-copy">Start with a workspace account, or contact support if you want help planning the rollout for your recruiters.</p>
+          <h2>Launch a cleaner hiring workflow.</h2>
+          <p className="landing-copy">Start with a workspace account, invite recruiters, and keep every job, candidate, interview, and evaluation inside one system.</p>
+          <div className="landing-checklist">
+            <div className="landing-checklist-item"><CheckCircle2 size={16} /> Manual job requirements</div>
+            <div className="landing-checklist-item"><CheckCircle2 size={16} /> Candidate scorecard history</div>
+            <div className="landing-checklist-item"><CheckCircle2 size={16} /> Preset avatars and lighter storage</div>
+          </div>
           <div className="landing-cta-row">
             <Link href="/signup" className="button button-primary">Create workspace</Link>
             <Link href="/contact" className="button button-ghost">Talk to support</Link>

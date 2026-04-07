@@ -1,9 +1,10 @@
-﻿import { format } from "date-fns";
+import { format } from "date-fns";
 
 import { CalendarView } from "@/components/interviews/calendar-view";
 import { InterviewBookingForm, InterviewSlotForm } from "@/components/interviews/interview-slot-form";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 
@@ -107,8 +108,18 @@ export default async function InterviewsPage({ searchParams }: InterviewsPagePro
   };
 
   return (
-    <div className="stack-xl">
-      <SectionHeading title="Interview scheduling" description="See the month view, drill into each day, and manage recruiter schedules without losing the role context." />
+    <div className="stack-xl workspace-screen-shell">
+      <WorkspaceHero
+        scene="interviews"
+        eyebrow="Interview command"
+        title="Open scorecards from the calendar, keep recruiter ownership visible, and reduce scheduling clutter."
+        description="The refreshed interview workspace gives you a calmer calendar, cleaner forms, and candidate-linked evaluations that stay useful after the interview ends."
+        stats={[
+          { label: "Visible slots", value: String(metrics.total) },
+          { label: "Booked", value: String(metrics.booked) },
+          { label: "Open slots", value: String(metrics.open) }
+        ]}
+      />
 
       <div className="stats-grid dashboard-stats-grid">
         <Card><strong>{metrics.total}</strong><span>Visible slots</span></Card>
@@ -117,9 +128,9 @@ export default async function InterviewsPage({ searchParams }: InterviewsPagePro
         <Card><strong>{metrics.open}</strong><span>Open slots</span></Card>
       </div>
 
-      <div className="page-grid-wide interview-layout-grid">
+      <div className="page-grid-wide interview-layout-grid workspace-split-layout">
         <div className="stack-xl">
-          <Card className="filter-bar">
+          <Card className="filter-bar filter-bar-rich">
             <form method="GET" className="filter-bar-inline">
               <select name="jobId" className="input" defaultValue={selectedJobId}>
                 {jobs.map((job) => (
@@ -136,17 +147,17 @@ export default async function InterviewsPage({ searchParams }: InterviewsPagePro
             </div>
           </Card>
 
-          <Card className="interview-calendar-card">
+          <Card className="interview-calendar-card interview-calendar-card-rich">
             <CalendarView slots={calendarSlots} recruiters={recruiters.map((recruiter) => ({ id: recruiter.id, fullName: recruiter.fullName }))} currentUserId={session.id} />
           </Card>
         </div>
 
         <div className="stack-xl sticky-card">
-          <Card>
+          <Card className="workspace-side-card workspace-side-card-rich">
             <SectionHeading title="Create interview slot" description="Block time, assign the recruiter, and add the meeting context once." />
             <InterviewSlotForm jobs={jobs} recruiters={recruiters.map((recruiter) => ({ id: recruiter.id, fullName: recruiter.fullName }))} selectedJobId={selectedJobId} currentUserId={session.id} />
           </Card>
-          <Card>
+          <Card className="workspace-side-card workspace-side-card-rich">
             <SectionHeading title="Assign candidate" description="Attach a candidate to any open slot in the selected role schedule." />
             <InterviewBookingForm
               slots={availableSlots}

@@ -1,10 +1,11 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { CandidateRecordCard } from "@/components/candidates/candidate-record-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { WorkspaceHero } from "@/components/ui/workspace-hero";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatScore } from "@/lib/utils";
@@ -32,6 +33,27 @@ type CandidateDetail = {
   resumeText: string | null;
   voiceEvaluation: { level?: string } | null;
   files: Array<{ id: string; kind: "CV" | "VOICE_NOTE" | "AVATAR"; fileName: string; mimeType: string; storageKey: string }>;
+  interviewScorecards: Array<{
+    id: string;
+    slotId: string;
+    bookingStatus: string;
+    jobTitle: string;
+    interviewerNames: string[];
+    location?: string | null;
+    scheduledAt: Date;
+    evaluation: {
+      communicationRating?: number | null;
+      languageRating?: number | null;
+      notes?: string | null;
+      educationNotes?: string | null;
+      workExperienceNotes?: string | null;
+      age?: string | null;
+      nationalIdNumber?: string | null;
+      mustHaveChecks?: Array<{ label: string; checked: boolean; notes?: string | null }>;
+      niceToHaveChecks?: Array<{ label: string; checked: boolean; notes?: string | null }>;
+    };
+    updatedAt: Date;
+  }>;
   stageEvents: Array<{ id: string; toStage: string; reason?: string | null; createdAt: Date }>;
   job: { title: string; location?: string | null };
 };
@@ -51,9 +73,22 @@ export default async function CandidateProfilePage({ params }: { params: Promise
 
   const timeline = [...(candidate.stageEvents ?? [])].sort((left, right) => +new Date(right.createdAt) - +new Date(left.createdAt));
   const mapQuery = candidate.address || candidate.country || candidate.job.location || "";
+  const scorecards = [...(candidate.interviewScorecards ?? [])].sort((left, right) => +new Date(right.scheduledAt) - +new Date(left.scheduledAt));
 
   return (
-    <div className="profile-detail-shell stack-xl">
+    <div className="profile-detail-shell stack-xl workspace-screen-shell">
+      <WorkspaceHero
+        scene="candidates"
+        eyebrow="Candidate profile"
+        title={`${candidate.firstName} ${candidate.lastName}`}
+        description={`Track candidate details, parsed resume context, file history, and interview scorecards for ${candidate.job.title}.`}
+        stats={[
+          { label: "Overall", value: formatScore(candidate.overallScore) },
+          { label: "Experience", value: `${candidate.yearsExperience ?? 0} yrs` },
+          { label: "Scorecards", value: String(scorecards.length) }
+        ]}
+      />
+
       <div className="detail-hero card">
         <div className="stack-md">
           <Link href="/candidates" className="back-link">Back to candidates</Link>
@@ -61,7 +96,7 @@ export default async function CandidateProfilePage({ params }: { params: Promise
             <div>
               <p className="eyebrow eyebrow-soft">Candidate profile</p>
               <h2 className="detail-title">{candidate.firstName} {candidate.lastName}</h2>
-              <p className="detail-subtitle">{candidate.job.title} · {candidate.address || candidate.country || "Location pending"}</p>
+              <p className="detail-subtitle">{candidate.job.title} | {candidate.address || candidate.country || "Location pending"}</p>
             </div>
             <Badge>{candidate.stage.replaceAll("_", " ")}</Badge>
           </div>
@@ -74,9 +109,38 @@ export default async function CandidateProfilePage({ params }: { params: Promise
         </div>
       </div>
 
-      <div className="detail-layout-grid">
+      <div className="detail-layout-grid detail-layout-grid-rich">
         <div className="stack-xl">
           <CandidateRecordCard candidate={candidate} />
+
+          <Card>
+            <SectionHeading title="Interview scorecards" description="Saved interview evaluations stay attached to the candidate profile for later reference." />
+            <div className="timeline-list">
+              {scorecards.length ? scorecards.map((scorecard) => (
+                <div key={scorecard.id} className="timeline-item scorecard-reference-card">
+                  <div className="list-row list-row-start">
+                    <div>
+                      <strong>{scorecard.jobTitle}</strong>
+                      <p>{new Date(scorecard.scheduledAt).toLocaleString()} {scorecard.location ? `| ${scorecard.location}` : ""}</p>
+                    </div>
+                    <Badge>{scorecard.bookingStatus.replaceAll("_", " ")}</Badge>
+                  </div>
+                  <div className="detail-pill-row">
+                    {scorecard.interviewerNames.map((name) => <span key={name} className="detail-pill">{name}</span>)}
+                  </div>
+                  <div className="scorecard-reference-grid">
+                    <div><small>Communication</small><strong>{scorecard.evaluation.communicationRating ?? "-"}</strong></div>
+                    <div><small>Language</small><strong>{scorecard.evaluation.languageRating ?? "-"}</strong></div>
+                    <div><small>Age</small><strong>{scorecard.evaluation.age || "-"}</strong></div>
+                    <div><small>National ID</small><strong>{scorecard.evaluation.nationalIdNumber || "-"}</strong></div>
+                  </div>
+                  {scorecard.evaluation.notes ? <p className="prose-text">{scorecard.evaluation.notes}</p> : null}
+                  {scorecard.evaluation.educationNotes ? <p className="muted">Education: {scorecard.evaluation.educationNotes}</p> : null}
+                  {scorecard.evaluation.workExperienceNotes ? <p className="muted">Work experience: {scorecard.evaluation.workExperienceNotes}</p> : null}
+                </div>
+              )) : <p className="muted">No interview scorecards have been saved for this candidate yet.</p>}
+            </div>
+          </Card>
         </div>
 
         <aside className="stack-lg">

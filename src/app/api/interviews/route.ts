@@ -1,14 +1,16 @@
-import { InterviewBookingStatus, InterviewStatus, NotificationKind } from "@/lib/models";
-import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
+
 import { format } from "date-fns";
+import { NextRequest } from "next/server";
+import { z } from "zod";
 
 import { requireApiSession } from "@/lib/api-auth";
 import { createAuditLog } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { fail, ok } from "@/lib/http";
+import { InterviewBookingStatus, InterviewStatus, NotificationKind } from "@/lib/models";
 import { createNotification } from "@/lib/notifications";
 import { interviewBookingSchema, interviewEvaluationSchema, interviewSlotSchema, interviewUpdateSchema } from "@/lib/validators";
-import { z } from "zod";
 
 async function getAssignedRecruiter(organizationId: string, assignedRecruiterId?: string | null) {
   if (!assignedRecruiterId) {
@@ -55,6 +57,16 @@ function normalizeInterviewEvaluation(input: z.infer<typeof interviewEvaluationS
     updatedById: userId,
     updatedAt: new Date()
   };
+}
+
+function upsertCandidateScorecard(existing: Array<Record<string, unknown>> | undefined, scorecard: Record<string, unknown>) {
+  const items = Array.isArray(existing) ? existing : [];
+  const next = [
+    ...items.filter((item) => item.slotId !== scorecard.slotId),
+    scorecard
+  ];
+
+  return next.sort((left, right) => +new Date(String(right.scheduledAt)) - +new Date(String(left.scheduledAt)));
 }
 
 export async function GET(request: NextRequest) {
@@ -257,7 +269,7 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  const bookingStatus = payload.data.bookingStatus ?? slot.booking?.status;
+  const bookingStatus = payload.data.bookingStatus ?? slot.booking?.status ?? InterviewBookingStatus.SCHEDULED;
   let slotStatus: InterviewStatus = slot.status;
 
   if (bookingStatus === InterviewBookingStatus.COMPLETED) {
@@ -286,15 +298,45 @@ export async function PATCH(request: NextRequest) {
     include: { booking: { include: { candidate: true } }, job: true }
   });
 
+  let nextEvaluation = slot.booking?.interviewEvaluation ?? null;
+  if (payload.data.interviewEvaluation) {
+    nextEvaluation = normalizeInterviewEvaluation(payload.data.interviewEvaluation, auth.session.id);
+  }
+
   if (slot.booking && (payload.data.bookingStatus || payload.data.notes !== undefined || payload.data.interviewEvaluation !== undefined)) {
     await db.interviewBooking.update({
       where: { slotId: slot.id },
       data: {
         status: bookingStatus,
         notes: payload.data.notes !== undefined ? payload.data.notes || null : slot.booking.notes,
-        interviewEvaluation: payload.data.interviewEvaluation
-          ? normalizeInterviewEvaluation(payload.data.interviewEvaluation, auth.session.id)
-          : slot.booking.interviewEvaluation ?? null
+        interviewEvaluation: nextEvaluation
+      }
+    });
+  }
+
+  if (slot.booking?.candidate && nextEvaluation) {
+    const existingScorecards = Array.isArray(slot.booking.candidate.interviewScorecards)
+      ? slot.booking.candidate.interviewScorecards
+      : [];
+
+    const currentScorecard = existingScorecards.find((item: { slotId: string }) => item.slotId === slot.id);
+    const scorecard = {
+      id: currentScorecard?.id ?? randomUUID(),
+      slotId: slot.id,
+      bookingStatus,
+      jobTitle: slot.job.title,
+      interviewerNames: payload.data.interviewerNames ?? slot.interviewerNames,
+      location: payload.data.location !== undefined ? payload.data.location || null : slot.location,
+      scheduledAt: nextStartsAt,
+      evaluation: nextEvaluation,
+      createdAt: currentScorecard?.createdAt ?? new Date(),
+      updatedAt: new Date()
+    };
+
+    await db.candidate.update({
+      where: { id: slot.booking.candidate.id },
+      data: {
+        interviewScorecards: upsertCandidateScorecard(existingScorecards, scorecard)
       }
     });
   }

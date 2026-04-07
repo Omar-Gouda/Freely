@@ -56,6 +56,7 @@ export function CandidateForm({ jobs }: { jobs: Array<{ id: string; title: strin
 
   const hasReviewData = Boolean(cvFile && parsed.resumeText);
   const detectedSkills = useMemo(() => parsed.skills.join(", "), [parsed.skills]);
+  const extractedSections = parsed.parsedProfile.detectedSections as Record<string, boolean> | undefined;
 
   async function parseResume(file: File | null, selectedJobId: string) {
     if (!file || !selectedJobId) {
@@ -170,9 +171,9 @@ export function CandidateForm({ jobs }: { jobs: Array<{ id: string; title: strin
   }
 
   return (
-    <div className="candidate-intake-shell">
-      <div className="candidate-intake-grid">
-        <div className="file-dropzone">
+    <div className="candidate-intake-shell candidate-intake-shell-rich">
+      <div className="candidate-intake-grid candidate-intake-grid-rich">
+        <div className="file-dropzone file-dropzone-rich stack-md">
           <strong>Resume intake</strong>
           <select className="input" value={jobId} onChange={(event) => setJobId(event.target.value)} required>
             <option value="">Select job</option>
@@ -208,10 +209,15 @@ export function CandidateForm({ jobs }: { jobs: Array<{ id: string; title: strin
           </label>
           <p className="muted">{voiceHint}</p>
         </div>
-        <div className="file-dropzone">
-          <strong>Review</strong>
+        <div className="file-dropzone file-dropzone-rich stack-md">
+          <strong>Parsing insights</strong>
+          <div className="detail-pill-row">
+            <span className="detail-pill">Skills: {parsed.skills.length}</span>
+            <span className="detail-pill">Experience: {parsed.yearsExperience ?? 0} years</span>
+          </div>
           <p className="muted">Detected skills: {detectedSkills || "None yet"}</p>
-          <p className="muted">Detected experience: {parsed.yearsExperience ?? 0} years</p>
+          <p className="muted">Education found: {extractedSections?.education ? "Yes" : "Not clearly detected yet"}</p>
+          <p className="muted">Experience found: {extractedSections?.experience ? "Yes" : "Not clearly detected yet"}</p>
           <p className="muted">Status: {hasReviewData ? "Ready to save." : "Upload a CV to begin."}</p>
         </div>
       </div>
